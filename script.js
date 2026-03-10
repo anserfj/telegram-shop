@@ -1,358 +1,312 @@
-/* ================================================
-   ZK PRO · Grossiste Puff · Telegram Mini App
-   script.js — App logic
-   ================================================ */
+// ================================================
+// ZK PRO — script.js (version Supabase connectée)
+// Remplace l'ancien script.js dans ton repo telegram-shop
+// ================================================
 
-'use strict';
+// ── CONFIG SUPABASE ──────────────────────────────
+const SUPABASE_URL = "https://hyigrnuoojusixzahjvq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_zvgnghWMy0byVdyrIxSafA_i52Nn2f9";
+const headers = {
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_KEY,
+  "Authorization": `Bearer ${SUPABASE_KEY}`,
+};
 
-/* ── TELEGRAM INIT ── */
-const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-  tg.enableClosingConfirmation();
+// ── API HELPERS ──────────────────────────────────
+async function sbGet(table, params = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers });
+  if (!res.ok) throw new Error(`GET ${table} failed: ${res.status}`);
+  return res.json();
 }
 
-/* ── PRODUITS ── */
-const PRODUCTS = [
-  {
-    id: 1, cat: 'puff', badge: 'top',
-    emoji: '💨', name: 'Elf Bar 600 — Mix Fruits',
-    price: 3.50, unit: '/ unité (min. 10)',
-    minQty: 10,
-    desc: 'Puff 600 bouffées, sans nicotine ou 20mg. Saveur fruits tropicaux. Certifiée TPD.',
-    specs: [['Bouffées','600'], ['Nicotine','0 / 20mg'], ['Batterie','550 mAh'], ['Contenance','2 ml']]
-  },
-  {
-    id: 2, cat: 'puff', badge: 'promo',
-    emoji: '🍋', name: 'Vozol Star 6000 — Citron',
-    price: 5.20, unit: '/ unité (min. 10)',
-    minQty: 10,
-    desc: 'Puff 6000 bouffées rechargeable. Batterie 500 mAh USB-C. Saveur citron glacé.',
-    specs: [['Bouffées','6000'], ['Nicotine','20mg'], ['Batterie','500 mAh'], ['Recharge','USB-C']]
-  },
-  {
-    id: 3, cat: 'puff', badge: 'new',
-    emoji: '🍇', name: 'Lost Mary BM600 — Raisin',
-    price: 3.80, unit: '/ unité (min. 10)',
-    minQty: 10,
-    desc: 'Puff Lost Mary 600 bouffées. Design compact et élégant. Saveur raisin glacé intense.',
-    specs: [['Bouffées','600'], ['Nicotine','20mg'], ['Batterie','500 mAh'], ['Contenance','2 ml']]
-  },
-  {
-    id: 4, cat: 'puff', badge: null,
-    emoji: '🍑', name: 'Tornado 7000 — Pêche',
-    price: 6.00, unit: '/ unité (min. 10)',
-    minQty: 10,
-    desc: 'Puff 7000 bouffées, écran LED batterie. Saveur pêche abricot. Rechargeable USB-C.',
-    specs: [['Bouffées','7000'], ['Nicotine','20mg'], ['Batterie','650 mAh'], ['Écran','LED niveau']],
-  },
-  {
-    id: 5, cat: 'puff', badge: 'stock',
-    emoji: '🍓', name: 'Elf Bar 1500 — Fraise',
-    price: 4.20, unit: '/ unité (min. 10)',
-    minQty: 10,
-    desc: 'Puff 1500 bouffées format intermédiaire. Saveur fraise classique. Stock limité.',
-    specs: [['Bouffées','1500'], ['Nicotine','20mg'], ['Batterie','850 mAh'], ['Contenance','4.8 ml']]
-  },
-  {
-    id: 6, cat: 'puff', badge: null,
-    emoji: '🍏', name: 'R&M Tornado — Pomme Froide',
-    price: 5.80, unit: '/ unité (min. 10)',
-    minQty: 10,
-    desc: 'Puff 9000 bouffées. Mesh coil haute performance. Saveur pomme verte glacée.',
-    specs: [['Bouffées','9000'], ['Nicotine','20mg'], ['Batterie','700 mAh'], ['Technologie','Mesh']]
-  },
-  {
-    id: 7, cat: 'recharge', badge: 'new',
-    emoji: '🔋', name: 'Pack Recharge USB-C ×50',
-    price: 18.00, unit: '/ pack de 50',
-    minQty: 1,
-    desc: 'Pack de 50 câbles USB-C courts pour puffs rechargeables. Compatible toutes marques.',
-    specs: [['Quantité','50 pcs'], ['Longueur','20 cm'], ['Ampérage','1A'], ['Compatibilité','USB-C']]
-  },
-  {
-    id: 8, cat: 'recharge', badge: null,
-    emoji: '📦', name: 'Carton 100 puffs mixte',
-    price: 290.00, unit: '/ carton 100 pcs',
-    minQty: 1,
-    desc: 'Carton de 100 puffs assortis (10 références). Idéal pour tester la gamme complète.',
-    specs: [['Quantité','100 pcs'], ['Références','10 mix'], ['Format','Carton'], ['Livraison','Express']]
-  },
-  {
-    id: 9, cat: 'accessoire', badge: null,
-    emoji: '🏷️', name: 'Présentoir de comptoir',
-    price: 12.00, unit: '/ unité',
-    minQty: 1,
-    desc: 'Présentoir acrylique 30 emplacements pour puffs. Idéal pour tabac et épicerie.',
-    specs: [['Emplacements','30'], ['Matière','Acrylique'], ['Format','Comptoir'], ['Couleur','Noir']]
-  },
-  {
-    id: 10, cat: 'accessoire', badge: 'promo',
-    emoji: '📋', name: 'Lot étiquettes prix ×200',
-    price: 5.00, unit: '/ lot 200 étiquettes',
-    minQty: 1,
-    desc: 'Lot de 200 étiquettes prix autocollantes pour puffs. Format 4×2 cm, repositionnables.',
-    specs: [['Quantité','200 pcs'], ['Format','4×2 cm'], ['Type','Autocollant'], ['Repositionnable','Oui']]
-  },
-];
-
-/* ── CART ── */
-let cart = [];
-
-/* ── NAVIGATION ── */
-let currentTab = 'produits';
-let currentFilter = 'tous';
-
-function switchTab(tab) {
-  if (tab === currentTab) return;
-  currentTab = tab;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const page = document.getElementById('page-' + tab);
-  if (page) page.classList.add('active');
-  document.querySelectorAll('.tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === tab);
+async function sbPost(table, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST",
+    headers: { ...headers, "Prefer": "return=minimal" },
+    body: JSON.stringify(body),
   });
-  if (tab === 'panier') renderCart();
+  if (!res.ok) throw new Error(`POST ${table} failed: ${res.status}`);
 }
 
-/* ── PRODUCTS ── */
+// ── TELEGRAM ─────────────────────────────────────
+const tg = window.Telegram?.WebApp || { ready:()=>{}, expand:()=>{}, enableClosingConfirmation:()=>{}, HapticFeedback:{impactOccurred:()=>{}}, sendData:()=>{}, initDataUnsafe:{user:{username:"demo_user"}} };
+tg.ready();
+tg.expand();
+tg.enableClosingConfirmation();
+
+// ── STATE ─────────────────────────────────────────
+let products = [];
+let cart = [];
+let currentTab = "produits";
+let currentFilter = "tous";
+
+// ── INIT ──────────────────────────────────────────
+async function init() {
+  try {
+    // Charger les produits depuis Supabase
+    const data = await sbGet("products", "?order=id.asc");
+    products = data.map(p => ({
+      id: p.id,
+      name: p.name,
+      cat: p.cat,
+      emoji: p.emoji || "💨",
+      price: parseFloat(p.price),
+      unit: p.unit,
+      minQty: p.min_qty,
+      badge: p.badge,
+      stock: p.stock,
+    }));
+  } catch (e) {
+    console.warn("Supabase non dispo, produits en dur:", e);
+    products = FALLBACK_PRODUCTS;
+  }
+
+  renderProducts();
+  updateCartBadge();
+}
+
+// ── NAVIGATION ────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelector(`[data-tab="${tab}"]`)?.classList.add("active");
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(`page-${tab}`)?.classList.add("active");
+  if (tab === "panier") renderCart();
+}
+
+// ── PRODUCTS ──────────────────────────────────────
 function filterProducts(cat) {
   currentFilter = cat;
-  document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.cat === cat);
-  });
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  document.querySelector(`[data-filter="${cat}"]`)?.classList.add("active");
   renderProducts();
 }
 
 function renderProducts() {
-  const grid = document.getElementById('productGrid');
-  const list = currentFilter === 'tous'
-    ? PRODUCTS
-    : PRODUCTS.filter(p => p.cat === currentFilter);
+  const grid = document.getElementById("productGrid");
+  if (!grid) return;
 
-  grid.innerHTML = list.map((p, i) => `
-    <div class="product-card no-select"
-         style="animation-delay:${i*.04}s"
-         onclick="openModal(${p.id})">
-      <div class="product-img-wrap">
-        <div class="emoji">${p.emoji}</div>
-        ${p.badge ? `<span class="product-badge badge-${p.badge}">${badgeLabel(p.badge)}</span>` : ''}
-      </div>
-      <div class="product-body">
-        <p class="product-cat">${catLabel(p.cat)}</p>
-        <p class="product-name">${p.name}</p>
-        <div class="product-footer">
-          <div>
-            <span class="product-price">${p.price.toFixed(2)} €</span>
-            <span class="product-unit">${p.unit}</span>
-          </div>
-          <button class="add-btn no-select"
-                  onclick="event.stopPropagation(); addToCart(${p.id})"
-                  aria-label="Ajouter">+</button>
-        </div>
+  const filtered = currentFilter === "tous"
+    ? products
+    : products.filter(p => p.cat === currentFilter);
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#4a5568">Aucun produit dans cette catégorie</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map((p, i) => `
+    <div class="product-card fade-up" style="animation-delay:${i * 0.05}s" onclick="openModal(${p.id})">
+      <div class="product-emoji">${p.emoji}</div>
+      <div class="product-info">
+        <div class="product-cat">${p.cat}${p.badge ? ` <span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}</div>
+        <div class="product-name">${p.name}</div>
+        <div class="product-price">${p.price.toFixed(2).replace(".", ",")} €<span class="product-unit">${p.unit}</span></div>
+        <div class="product-min">Min. ${p.minQty} unités${p.stock < 50 ? ` · <span style="color:#ff9f43">Stock faible : ${p.stock}</span>` : ""}</div>
       </div>
     </div>
-  `).join('');
+  `).join("");
 }
 
-function badgeLabel(b) {
-  return { new: 'Nouveau', promo: 'Promo', top: 'Top', stock: 'Stock !' }[b] || b;
-}
-function catLabel(c) {
-  return { puff: 'Puff', recharge: 'Recharge', accessoire: 'Accessoire' }[c] || c;
-}
-
-/* ── MODAL ── */
+// ── MODAL ─────────────────────────────────────────
 function openModal(id) {
-  const p = PRODUCTS.find(x => x.id === id);
+  const p = products.find(x => x.id === id);
   if (!p) return;
 
-  const specsHTML = p.specs
-    ? `<div class="modal-specs">${p.specs.map(([k,v]) => `<div class="spec-item"><strong>${v}</strong>${k}</div>`).join('')}</div>`
-    : '';
+  const overlay = document.getElementById("modalOverlay");
+  const body = document.getElementById("modalBody");
 
-  document.getElementById('modalBody').innerHTML = `
+  body.innerHTML = `
     <div class="modal-emoji">${p.emoji}</div>
-    <p class="modal-cat">${catLabel(p.cat)}</p>
-    <h2 class="modal-name">${p.name}</h2>
-    <p class="modal-desc">${p.desc}</p>
-    ${specsHTML}
-    <div class="modal-footer">
-      <div>
-        <span class="modal-price">${p.price.toFixed(2)} €</span>
-        <span class="modal-price-unit">${p.unit}</span>
-      </div>
-      <button class="modal-add-btn" onclick="addToCart(${p.id}); closeModal()">
-        AJOUTER AU PANIER
-      </button>
+    <div class="modal-cat">${p.cat}${p.badge ? ` <span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}</div>
+    <div class="modal-name">${p.name}</div>
+    <div class="modal-price">${p.price.toFixed(2).replace(".", ",")} € <span class="modal-unit">${p.unit}</span></div>
+    <div class="modal-min">Commande minimum : <strong>${p.minQty} unités</strong></div>
+    ${p.stock < 50 ? `<div class="modal-stock-warn">⚠️ Stock faible : ${p.stock} restants</div>` : ""}
+    <div class="modal-qty-row">
+      <button class="qty-btn" onclick="changeModalQty(-${p.minQty})">−</button>
+      <input id="modalQty" type="number" value="${p.minQty}" min="${p.minQty}" step="${p.minQty}" class="qty-input" />
+      <button class="qty-btn" onclick="changeModalQty(${p.minQty})">+</button>
     </div>
+    <button class="modal-add-btn" onclick="addToCartFromModal(${p.id})">Ajouter au panier</button>
   `;
 
-  document.getElementById('modalOverlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  overlay.classList.add("active");
 }
 
 function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
+  document.getElementById("modalOverlay")?.classList.remove("active");
 }
 
-/* ── CART LOGIC ── */
-function addToCart(id) {
-  const product = PRODUCTS.find(p => p.id === id);
-  if (!product) return;
+function changeModalQty(delta) {
+  const input = document.getElementById("modalQty");
+  const val = parseInt(input.value) + delta;
+  const p = products.find(x => x.id === parseInt(input.closest(".modal-body, #modalBody") ? null : null));
+  input.value = Math.max(1, val);
+}
 
-  const existing = cart.find(i => i.product.id === id);
+function addToCartFromModal(id) {
+  const p = products.find(x => x.id === id);
+  const qty = parseInt(document.getElementById("modalQty")?.value || p.minQty);
+  addToCart(id, qty);
+  closeModal();
+}
+
+// ── CART ──────────────────────────────────────────
+function addToCart(id, qty) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+
+  const existing = cart.find(x => x.id === id);
   if (existing) {
-    existing.qty++;
+    existing.qty += qty;
   } else {
-    cart.push({ product, qty: product.minQty || 1 });
+    cart.push({ id, name: p.name, emoji: p.emoji, price: p.price, qty });
   }
 
+  tg.HapticFeedback.impactOccurred("light");
   updateCartBadge();
-  showToast(`${product.emoji} ${product.name.split('—')[0].trim()} ajouté`);
-  tg?.HapticFeedback?.impactOccurred('light');
+  showToast(`✅ ${p.name} ajouté au panier`);
 }
 
 function removeFromCart(id) {
-  cart = cart.filter(i => i.product.id !== id);
+  cart = cart.filter(x => x.id !== id);
   updateCartBadge();
   renderCart();
 }
 
 function changeQty(id, delta) {
-  const item = cart.find(i => i.product.id === id);
+  const item = cart.find(x => x.id === id);
   if (!item) return;
-  item.qty = Math.max(0, item.qty + delta);
-  if (item.qty === 0) { removeFromCart(id); return; }
-  updateCartBadge();
+  item.qty = Math.max(1, item.qty + delta);
   renderCart();
+  updateCartBadge();
 }
 
 function updateCartBadge() {
-  const total = cart.reduce((s, i) => s + i.qty, 0);
-  const badge = document.getElementById('cartCount');
-  badge.textContent = total;
-  badge.classList.toggle('visible', total > 0);
+  const count = cart.reduce((s, x) => s + x.qty, 0);
+  const badge = document.getElementById("cartBadge");
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? "flex" : "none";
+  }
 }
 
-function cartTotal() {
-  return cart.reduce((s, i) => s + i.product.price * i.qty, 0);
-}
-function cartItemCount() {
-  return cart.reduce((s, i) => s + i.qty, 0);
+function getTotal() {
+  return cart.reduce((s, x) => s + x.price * x.qty, 0);
 }
 
-/* ── RENDER CART ── */
+function getLivraison() {
+  return getTotal() >= 200 ? 0 : 9.90;
+}
+
 function renderCart() {
-  const container = document.getElementById('cartContent');
+  const content = document.getElementById("cartContent");
+  if (!content) return;
 
   if (cart.length === 0) {
-    container.innerHTML = `
-      <div class="cart-empty">
-        <div class="empty-icon">📦</div>
-        <h3>Panier vide</h3>
-        <p>Ajoutez des produits depuis le catalogue grossiste.</p>
-        <button class="btn-shop" onclick="switchTab('produits')">VOIR LE CATALOGUE</button>
-      </div>
-    `;
+    content.innerHTML = `<div class="cart-empty">🛒<br>Votre panier est vide</div>`;
     return;
   }
 
-  const total = cartTotal();
-  const count = cartItemCount();
-  const livraison = total >= 200 ? 0 : 9.90;
+  const total = getTotal();
+  const livraison = getLivraison();
 
-  container.innerHTML = `
+  content.innerHTML = `
     <div class="cart-items">
-      ${cart.map(({ product: p, qty }) => `
+      ${cart.map(item => `
         <div class="cart-item">
-          <div class="cart-item-emoji">${p.emoji}</div>
+          <div class="cart-item-emoji">${item.emoji}</div>
           <div class="cart-item-info">
-            <p class="cart-item-name">${p.name}</p>
-            <p class="cart-item-price">${(p.price * qty).toFixed(2)} €</p>
+            <div class="cart-item-name">${item.name}</div>
+            <div class="cart-item-price">${item.price.toFixed(2).replace(".", ",")} € × ${item.qty} = <strong>${(item.price * item.qty).toFixed(2).replace(".", ",")} €</strong></div>
           </div>
-          <div class="qty-ctrl">
-            <button class="qty-btn" onclick="changeQty(${p.id}, -1)">−</button>
-            <span class="qty-val">${qty}</span>
-            <button class="qty-btn" onclick="changeQty(${p.id}, +1)">+</button>
-            <button class="qty-btn del" onclick="removeFromCart(${p.id})">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
-            </button>
+          <div class="cart-item-controls">
+            <button class="qty-btn-sm" onclick="changeQty(${item.id}, -1)">−</button>
+            <span>${item.qty}</span>
+            <button class="qty-btn-sm" onclick="changeQty(${item.id}, 1)">+</button>
+            <button class="remove-btn" onclick="removeFromCart(${item.id})">🗑️</button>
           </div>
         </div>
-      `).join('')}
+      `).join("")}
     </div>
-
     <div class="cart-summary">
-      <div class="summary-row">
-        <span>Sous-total (${count} article${count>1?'s':''})</span>
-        <span>${total.toFixed(2)} €</span>
-      </div>
-      <div class="summary-row">
-        <span>Livraison</span>
-        ${livraison === 0
-          ? '<span class="free-badge">✓ OFFERTE</span>'
-          : `<span>${livraison.toFixed(2)} €</span>`}
-      </div>
-      ${livraison > 0 ? `
-        <div class="summary-row" style="font-size:.72rem;color:var(--text3)">
-          <span>Livraison offerte dès 200 € d'achat</span>
-        </div>` : ''}
-      <div class="summary-row total">
-        <span>TOTAL TTC</span>
-        <span>${(total + livraison).toFixed(2)} €</span>
-      </div>
+      <div class="summary-row"><span>Sous-total HT</span><span>${total.toFixed(2).replace(".", ",")} €</span></div>
+      <div class="summary-row"><span>Livraison</span><span style="color:${livraison === 0 ? "#00e676" : "#eef2f7"}">${livraison === 0 ? "OFFERTE ✓" : livraison.toFixed(2).replace(".", ",") + " €"}</span></div>
+      ${livraison > 0 ? `<div class="delivery-hint">🚚 Livraison offerte dès 200 € (il vous manque ${(200 - total).toFixed(2)} €)</div>` : ""}
+      <div class="summary-row total-row"><span>Total TTC</span><span>${(total + livraison).toFixed(2).replace(".", ",")} €</span></div>
+      <button class="checkout-btn" onclick="checkout()">Confirmer la commande →</button>
     </div>
-
-    <button class="btn-checkout" onclick="checkout()">
-      PASSER LA COMMANDE — ${(total + livraison).toFixed(2)} €
-    </button>
   `;
 }
 
-/* ── CHECKOUT ── */
-function checkout() {
-  if (!cart.length) return;
+// ── CHECKOUT ──────────────────────────────────────
+async function checkout() {
+  if (cart.length === 0) return showToast("Votre panier est vide");
+
+  const user = tg.initDataUnsafe?.user;
+  const username = user?.username ? `@${user.username}` : user?.first_name || "client_telegram";
+  const total = getTotal();
+  const livraison = getLivraison();
+
+  const orderId = "CMD-" + Date.now().toString().slice(-6);
 
   const order = {
-    client: tg?.initDataUnsafe?.user?.username || 'inconnu',
-    items: cart.map(({ product: p, qty }) => ({
-      id: p.id, name: p.name, qty, unitPrice: p.price,
-      total: +(p.price * qty).toFixed(2),
-    })),
-    totalHT: +cartTotal().toFixed(2),
-    livraison: cartTotal() >= 200 ? 0 : 9.90,
-    totalTTC: +(cartTotal() + (cartTotal() >= 200 ? 0 : 9.90)).toFixed(2),
+    id: orderId,
+    telegram_user: username,
+    items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+    total: parseFloat(total.toFixed(2)),
+    livraison: parseFloat(livraison.toFixed(2)),
+    status: "nouveau",
   };
 
-  if (tg) {
-    tg.HapticFeedback?.notificationOccurred('success');
-    tg.sendData(JSON.stringify(order));
-  } else {
-    showToast('✅ Commande envoyée !');
+  try {
+    await sbPost("orders", order);
+    showToast("✅ Commande envoyée ! On vous contacte bientôt.");
     cart = [];
     updateCartBadge();
     renderCart();
+    tg.HapticFeedback.impactOccurred("heavy");
+
+    // Envoie aussi les données au bot Telegram
+    tg.sendData(JSON.stringify({ orderId, total: total + livraison }));
+  } catch (e) {
+    console.error("Erreur commande:", e);
+    showToast("❌ Erreur, réessayez.");
   }
 }
 
-/* ── TOAST ── */
-let toastTimer;
+// ── TOAST ─────────────────────────────────────────
 function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2500);
 }
 
-/* ── ESC ── */
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+// ── FALLBACK PRODUCTS (si Supabase injoignable) ───
+const FALLBACK_PRODUCTS = [
+  { id:1, cat:"puff",       emoji:"💨", name:"Elf Bar 600 — Mix Fruits",   price:3.50,  unit:"/ unité",  minQty:10, badge:"top",   stock:340 },
+  { id:2, cat:"puff",       emoji:"🍋", name:"Vozol Star 6000 — Citron",   price:5.20,  unit:"/ unité",  minQty:10, badge:"promo", stock:210 },
+  { id:3, cat:"puff",       emoji:"🍇", name:"Lost Mary BM600 — Raisin",   price:3.80,  unit:"/ unité",  minQty:10, badge:"new",   stock:180 },
+  { id:4, cat:"puff",       emoji:"🍑", name:"Tornado 7000 — Pêche",       price:6.00,  unit:"/ unité",  minQty:10, badge:null,    stock:95  },
+  { id:5, cat:"puff",       emoji:"🍓", name:"Elf Bar 1500 — Fraise",      price:4.20,  unit:"/ unité",  minQty:10, badge:"stock", stock:42  },
+  { id:6, cat:"puff",       emoji:"🍏", name:"R&M Tornado — Pomme Froide", price:5.80,  unit:"/ unité",  minQty:10, badge:null,    stock:130 },
+  { id:7, cat:"recharge",   emoji:"🔋", name:"Pack Recharge USB-C ×50",    price:18.00, unit:"/ pack",   minQty:1,  badge:"new",   stock:60  },
+  { id:8, cat:"recharge",   emoji:"📦", name:"Carton 100 puffs mixte",     price:290.00,unit:"/ carton", minQty:1,  badge:null,    stock:15  },
+  { id:9, cat:"accessoire", emoji:"🏷️", name:"Présentoir de comptoir",     price:12.00, unit:"/ unité",  minQty:1,  badge:null,    stock:28  },
+  { id:10,cat:"accessoire", emoji:"📋", name:"Lot étiquettes prix ×200",   price:5.00,  unit:"/ lot",    minQty:1,  badge:"promo", stock:200 },
+];
 
-/* ── INIT ── */
-document.addEventListener('DOMContentLoaded', () => {
-  renderProducts();
-  updateCartBadge();
+// ── EVENTS ────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  init();
+  document.getElementById("modalOverlay")?.addEventListener("click", e => {
+    if (e.target.id === "modalOverlay") closeModal();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeModal();
+  });
 });
