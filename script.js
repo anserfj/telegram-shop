@@ -1,6 +1,5 @@
 // ================================================
-// ZK PRO — script.js v2
-// Fix modal + système modèle/goûts
+// ZK PRO — script.js v3 (classes CSS corrigées)
 // ================================================
 
 const SUPABASE_URL = "https://hyigrnuoojusixzahjvq.supabase.co";
@@ -25,23 +24,21 @@ tg.enableClosingConfirmation();
 // ── STATE ─────────────────────────────────────────
 let products = [];
 let cart = [];
-let currentTab = "produits";
 let currentFilter = "tous";
 
-// ── SUPABASE FETCH ────────────────────────────────
+// ── SUPABASE ──────────────────────────────────────
 async function sbGet(table, params = "") {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: SB_HEADERS });
-  if (!r.ok) throw new Error(`Erreur Supabase: ${r.status}`);
+  if (!r.ok) throw new Error(`Supabase ${r.status}`);
   return r.json();
 }
-
 async function sbPost(table, body) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
     headers: { ...SB_HEADERS, "Prefer": "return=minimal" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`Erreur Supabase: ${r.status}`);
+  if (!r.ok) throw new Error(`Supabase ${r.status}`);
 }
 
 // ── INIT ──────────────────────────────────────────
@@ -54,36 +51,39 @@ async function init() {
       gouts: Array.isArray(p.gouts) ? p.gouts : (p.gouts ? JSON.parse(p.gouts) : []),
     }));
   } catch(e) {
-    console.warn("Supabase indispo, données de secours:", e);
+    console.warn("Supabase indispo:", e);
     products = FALLBACK_PRODUCTS;
   }
-
   renderProducts();
   updateCartBadge();
 }
 
 // ── NAVIGATION ────────────────────────────────────
 function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll(".tab").forEach(b => {
-    b.classList.toggle("active", b.dataset.tab === tab);
-  });
-  document.querySelectorAll(".page").forEach(p => {
-    p.classList.toggle("active", p.id === `page-${tab}`);
-  });
+  document.querySelectorAll(".tab").forEach(b =>
+    b.classList.toggle("active", b.dataset.tab === tab)
+  );
+  document.querySelectorAll(".page").forEach(p =>
+    p.classList.toggle("active", p.id === `page-${tab}`)
+  );
   if (tab === "panier") renderCart();
 }
 
 // ── FILTRES ───────────────────────────────────────
 function filterProducts(cat) {
   currentFilter = cat;
-  document.querySelectorAll(".filter-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.cat === cat);
-  });
+  document.querySelectorAll(".filter-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.cat === cat)
+  );
   renderProducts();
 }
 
 // ── RENDU PRODUITS ────────────────────────────────
+// Structure CSS existante :
+// .product-card
+//   .product-badge (position: absolute top left)
+//   .product-img-wrap > .emoji
+//   .product-body > .product-cat / .product-name / .product-price + .product-unit / .product-min
 function renderProducts() {
   const grid = document.getElementById("productGrid");
   if (!grid) return;
@@ -93,35 +93,45 @@ function renderProducts() {
     : products.filter(p => p.cat === currentFilter);
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#4a5568;font-size:14px">Aucun produit disponible</div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3);font-size:14px">Aucun produit disponible</div>`;
     return;
   }
 
-  grid.innerHTML = filtered.map((p, i) => `
-    <div class="product-card" style="animation-delay:${i * 0.05}s" onclick="openModal(${p.id})">
-      <div class="product-emoji">${p.emoji || "💨"}</div>
-      <div class="product-info">
-        <div class="product-cat">
-          ${p.cat}
-          ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
+  grid.innerHTML = filtered.map((p, i) => {
+    const gouts = p.gouts || [];
+    const stockInfo = p.stock === 0
+      ? ` · <span style="color:#ff4757">Épuisé</span>`
+      : p.stock < 50
+        ? ` · <span style="color:#ff9f43">Stock faible</span>`
+        : "";
+    const goutsInfo = gouts.length > 0
+      ? ` · <span style="color:var(--accent)">${gouts.length} goûts</span>`
+      : "";
+
+    return `
+      <div class="product-card" style="animation-delay:${i*0.05}s" onclick="openModal(${p.id})">
+        ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
+        <div class="product-img-wrap">
+          <span class="emoji">${p.emoji || "💨"}</span>
         </div>
-        <div class="product-name">${p.name}</div>
-        <div class="product-price">
-          ${p.price.toFixed(2).replace(".", ",")} €
-          <span class="product-unit">${p.unit}</span>
+        <div class="product-body">
+          <div class="product-cat">${p.cat}</div>
+          <div class="product-name">${p.name}</div>
+          <div class="product-price">${p.price.toFixed(2).replace(".", ",")} €
+            <span class="product-unit">${p.unit}</span>
+          </div>
+          <div class="product-min" style="font-size:.72rem;color:var(--text3);margin-top:5px">
+            Min. ${p.min_qty} unités${goutsInfo}${stockInfo}
+          </div>
         </div>
-        <div class="product-min">
-          Min. ${p.min_qty} unités
-          ${p.gouts && p.gouts.length > 0 ? `· <span style="color:#00e5ff">${p.gouts.length} goûts</span>` : ""}
-          ${p.stock < 50 && p.stock > 0 ? `· <span style="color:#ff9f43">Stock faible</span>` : ""}
-          ${p.stock === 0 ? `· <span style="color:#ff4757">Épuisé</span>` : ""}
-        </div>
-      </div>
-    </div>
-  `).join("");
+      </div>`;
+  }).join("");
 }
 
 // ── MODAL ─────────────────────────────────────────
+// ⚠️ Le CSS utilise .open (pas .active) :
+// .modal-overlay.open { opacity:1; pointer-events:all; }
+// .modal-overlay.open .modal { transform:translateY(0); }
 function openModal(id) {
   const p = products.find(x => x.id === id);
   if (!p) return;
@@ -130,84 +140,79 @@ function openModal(id) {
   const modal   = document.getElementById("modal");
   if (!overlay || !modal) return;
 
-  const hasGouts = p.gouts && p.gouts.length > 0;
+  const gouts    = p.gouts || [];
+  const hasGouts = gouts.length > 0;
 
   modal.innerHTML = `
     <button class="modal-close" onclick="closeModal()">✕</button>
+
     <div class="modal-emoji">${p.emoji || "💨"}</div>
     <div class="modal-cat">
-      ${p.cat}
-      ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
+      ${p.cat}${p.badge ? `&nbsp;<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
     </div>
     <div class="modal-name">${p.name}</div>
     <div class="modal-price">
       ${p.price.toFixed(2).replace(".", ",")} €
-      <span class="modal-unit">${p.unit}</span>
+      <span class="modal-price-unit">${p.unit} · min. ${p.min_qty}</span>
     </div>
-    <div class="modal-min">Commande minimum : <strong>${p.min_qty} unités</strong></div>
 
     ${hasGouts ? `
-    <div class="modal-field">
-      <label class="modal-label">Choisir le goût</label>
-      <select id="modalGout" class="modal-select">
+    <div style="margin:16px 0 8px">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Choisir le goût</label>
+      <select id="modalGout" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:11px 14px;outline:none;cursor:pointer;font-family:inherit;transition:border-color .2s">
         <option value="">— Sélectionner un goût —</option>
-        ${p.gouts.map(g => `<option value="${g}">${g}</option>`).join("")}
+        ${gouts.map(g => `<option value="${g}">${g}</option>`).join("")}
       </select>
     </div>
     ` : ""}
 
-    <div class="modal-field">
-      <label class="modal-label">Quantité</label>
-      <div class="modal-qty-row">
+    <div style="margin:14px 0 8px">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Quantité</label>
+      <div style="display:flex;align-items:center;gap:10px">
         <button class="qty-btn" onclick="changeModalQty(${p.min_qty}, -1)">−</button>
         <input id="modalQty" type="number"
           value="${p.min_qty}" min="${p.min_qty}" step="${p.min_qty}"
-          class="qty-input" onchange="clampQty(${p.min_qty})" />
+          style="flex:1;text-align:center;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-weight:700;padding:9px 8px;outline:none;font-family:inherit"/>
         <button class="qty-btn" onclick="changeModalQty(${p.min_qty}, 1)">+</button>
       </div>
     </div>
 
-    ${p.stock > 0 && p.stock < 100 ? `<div class="modal-stock-warn">⚠️ Stock : ${p.stock} unités restantes</div>` : ""}
-    ${p.stock === 0 ? `<div class="modal-stock-warn" style="color:#ff4757">❌ Produit épuisé</div>` : ""}
+    ${p.stock > 0 && p.stock < 100 ? `<p style="font-size:.78rem;color:#ff9f43;margin:8px 0">⚠️ Stock : ${p.stock} unités restantes</p>` : ""}
+    ${p.stock === 0 ? `<p style="font-size:.78rem;color:#ff4757;margin:8px 0">❌ Produit épuisé</p>` : ""}
 
-    <button class="modal-add-btn" onclick="addToCartFromModal(${p.id})" ${p.stock === 0 ? "disabled" : ""}>
-      ${p.stock === 0 ? "Épuisé" : "Ajouter au panier"}
-    </button>
+    <div style="margin-top:18px">
+      <button class="modal-add-btn" onclick="addToCartFromModal(${p.id})"
+        ${p.stock === 0 ? "disabled style='opacity:.4;cursor:not-allowed'" : ""}>
+        ${p.stock === 0 ? "ÉPUISÉ" : "AJOUTER AU PANIER"}
+      </button>
+    </div>
   `;
 
-  overlay.classList.add("active");
+  overlay.classList.add("open");
   document.body.style.overflow = "hidden";
 }
 
 function closeModal() {
-  document.getElementById("modalOverlay")?.classList.remove("active");
+  document.getElementById("modalOverlay")?.classList.remove("open");
   document.body.style.overflow = "";
 }
 
 function changeModalQty(step, dir) {
   const input = document.getElementById("modalQty");
   if (!input) return;
-  const val = parseInt(input.value) + dir * step;
-  input.value = Math.max(step, val);
-}
-
-function clampQty(min) {
-  const input = document.getElementById("modalQty");
-  if (!input) return;
-  if (parseInt(input.value) < min) input.value = min;
+  input.value = Math.max(step, parseInt(input.value) + dir * step);
 }
 
 function addToCartFromModal(id) {
   const p = products.find(x => x.id === id);
   if (!p || p.stock === 0) return;
 
+  const goutEl   = document.getElementById("modalGout");
+  const gout     = goutEl ? goutEl.value : null;
   const hasGouts = p.gouts && p.gouts.length > 0;
-  const goutEl = document.getElementById("modalGout");
-  const gout = goutEl ? goutEl.value : null;
 
   if (hasGouts && !gout) {
-    goutEl.style.border = "1.5px solid #ff4757";
-    goutEl.focus();
+    if (goutEl) goutEl.style.borderColor = "#ff4757";
     showToast("⚠️ Veuillez choisir un goût");
     return;
   }
@@ -222,10 +227,8 @@ function addToCart(id, qty, gout = null) {
   const p = products.find(x => x.id === id);
   if (!p) return;
 
-  // Clé unique = produit + goût
   const key = `${id}__${gout || "none"}`;
   const existing = cart.find(x => x.key === key);
-
   if (existing) {
     existing.qty += qty;
   } else {
@@ -234,7 +237,7 @@ function addToCart(id, qty, gout = null) {
 
   tg.HapticFeedback.impactOccurred("light");
   updateCartBadge();
-  showToast(`✅ ${p.name}${gout ? ` (${gout})` : ""} ajouté`);
+  showToast(`✅ ${p.name}${gout ? ` · ${gout}` : ""} ajouté`);
 }
 
 function removeFromCart(key) {
@@ -246,17 +249,16 @@ function removeFromCart(key) {
 function changeQty(key, delta) {
   const item = cart.find(x => x.key === key);
   if (!item) return;
-  const p = products.find(x => x.id === item.id);
+  const p    = products.find(x => x.id === item.id);
   const step = p?.min_qty || 1;
-  item.qty = Math.max(step, item.qty + delta);
+  item.qty   = Math.max(step, item.qty + delta);
   renderCart();
   updateCartBadge();
 }
 
 function updateCartBadge() {
-  const count = cart.reduce((s, x) => s + x.qty, 0);
-  const badge = document.getElementById("cartCount");
-  if (badge) badge.textContent = count;
+  const el = document.getElementById("cartCount");
+  if (el) el.textContent = cart.reduce((s, x) => s + x.qty, 0);
 }
 
 function getTotal()    { return cart.reduce((s, x) => s + x.price * x.qty, 0); }
@@ -267,13 +269,18 @@ function renderCart() {
   if (!content) return;
 
   if (cart.length === 0) {
-    content.innerHTML = `<div class="cart-empty">🛒<br><br>Votre panier est vide</div>`;
+    content.innerHTML = `
+      <div class="cart-empty">
+        <div class="empty-icon">🛒</div>
+        <h3>Panier vide</h3>
+        <p>Parcourez le catalogue pour ajouter des produits</p>
+        <button class="btn-shop" onclick="switchTab('produits')">Voir le catalogue</button>
+      </div>`;
     return;
   }
 
-  const total = getTotal();
+  const total     = getTotal();
   const livraison = getLivraison();
-  const ttc = total + livraison;
 
   content.innerHTML = `
     <div class="cart-items">
@@ -282,20 +289,19 @@ function renderCart() {
           <div class="cart-item-emoji">${item.emoji || "💨"}</div>
           <div class="cart-item-info">
             <div class="cart-item-name">${item.name}</div>
-            ${item.gout ? `<div class="cart-item-gout">🍬 ${item.gout}</div>` : ""}
+            ${item.gout ? `<div style="font-size:.74rem;color:var(--accent);margin-bottom:2px">🍬 ${item.gout}</div>` : ""}
             <div class="cart-item-price">
               ${item.price.toFixed(2).replace(".", ",")} € × ${item.qty}
-              = <strong>${(item.price * item.qty).toFixed(2).replace(".", ",")} €</strong>
+              = ${(item.price * item.qty).toFixed(2).replace(".", ",")} €
             </div>
           </div>
-          <div class="cart-item-controls">
-            <button class="qty-btn-sm" onclick="changeQty('${item.key}', -1)">−</button>
-            <span>${item.qty}</span>
-            <button class="qty-btn-sm" onclick="changeQty('${item.key}', 1)">+</button>
-            <button class="remove-btn" onclick="removeFromCart('${item.key}')">🗑️</button>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button class="qty-btn" onclick="changeQty('${item.key}', -1)">−</button>
+            <span style="font-size:13px;font-weight:700;min-width:20px;text-align:center">${item.qty}</span>
+            <button class="qty-btn" onclick="changeQty('${item.key}', 1)">+</button>
+            <button class="qty-btn del" onclick="removeFromCart('${item.key}')" style="margin-left:2px">🗑</button>
           </div>
-        </div>
-      `).join("")}
+        </div>`).join("")}
     </div>
 
     <div class="cart-summary">
@@ -305,24 +311,18 @@ function renderCart() {
       </div>
       <div class="summary-row">
         <span>Livraison</span>
-        <span style="color:${livraison === 0 ? "#00e676" : "#eef2f7"}">
+        <span style="color:${livraison === 0 ? "#00e676" : ""}">
           ${livraison === 0 ? "OFFERTE ✓" : livraison.toFixed(2).replace(".", ",") + " €"}
         </span>
       </div>
-      ${livraison > 0 ? `
-        <div class="delivery-hint">
-          🚚 Livraison offerte dès 200 €
-          (manque ${(200 - total).toFixed(2)} €)
-        </div>
-      ` : ""}
-      <div class="summary-row total-row">
+      ${livraison > 0 ? `<div style="font-size:.74rem;color:var(--text3);padding:3px 0">🚚 Livraison offerte dès 200 € (manque ${(200-total).toFixed(2)} €)</div>` : ""}
+      <div class="summary-row total">
         <span>Total TTC</span>
-        <span>${ttc.toFixed(2).replace(".", ",")} €</span>
+        <span>${(total+livraison).toFixed(2).replace(".", ",")} €</span>
       </div>
-      <button class="checkout-btn" onclick="checkout()">
-        Confirmer la commande →
-      </button>
     </div>
+
+    <button class="btn-checkout" onclick="checkout()">CONFIRMER LA COMMANDE →</button>
   `;
 }
 
@@ -339,12 +339,7 @@ async function checkout() {
   const order = {
     id: orderId,
     telegram_user: username,
-    items: cart.map(i => ({
-      name: i.name,
-      gout: i.gout || null,
-      qty:  i.qty,
-      price:i.price,
-    })),
+    items:    cart.map(i => ({ name:i.name, gout:i.gout||null, qty:i.qty, price:i.price })),
     total:    parseFloat(total.toFixed(2)),
     livraison:parseFloat(livraison.toFixed(2)),
     status:   "nouveau",
@@ -388,11 +383,9 @@ const FALLBACK_PRODUCTS = [
 // ── START ─────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   init();
-
   document.getElementById("modalOverlay")?.addEventListener("click", function(e) {
     if (e.target === this) closeModal();
   });
-
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") closeModal();
   });
