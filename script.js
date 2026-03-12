@@ -1,5 +1,5 @@
 // ================================================
-// ZK PRO — script.js v3 (classes CSS corrigées)
+// ZK PRO — script.js v3 (photos + vidéos)
 // ================================================
 
 const SUPABASE_URL = "https://hyigrnuoojusixzahjvq.supabase.co";
@@ -14,17 +14,18 @@ const SB_HEADERS = {
 const tg = window.Telegram?.WebApp || {
   ready:()=>{}, expand:()=>{}, enableClosingConfirmation:()=>{},
   HapticFeedback:{impactOccurred:()=>{}},
-  sendData:(d)=>{ console.log("sendData:", d); },
+  sendData:(d)=>console.log("sendData:", d),
   initDataUnsafe:{ user:{ username:"demo_user" } }
 };
-tg.ready();
-tg.expand();
-tg.enableClosingConfirmation();
+tg.ready(); tg.expand(); tg.enableClosingConfirmation();
 
 // ── STATE ─────────────────────────────────────────
 let products = [];
 let cart = [];
 let currentFilter = "tous";
+
+// ── UTILS ─────────────────────────────────────────
+const isVideo = url => url && /\.(mp4|webm|mov|avi)(\?|$)/i.test(url);
 
 // ── SUPABASE ──────────────────────────────────────
 async function sbGet(table, params = "") {
@@ -51,7 +52,7 @@ async function init() {
       gouts: Array.isArray(p.gouts) ? p.gouts : (p.gouts ? JSON.parse(p.gouts) : []),
     }));
   } catch(e) {
-    console.warn("Supabase indispo:", e);
+    console.warn("Supabase indispo, fallback:", e);
     products = FALLBACK_PRODUCTS;
   }
   renderProducts();
@@ -69,7 +70,6 @@ function switchTab(tab) {
   if (tab === "panier") renderCart();
 }
 
-// ── FILTRES ───────────────────────────────────────
 function filterProducts(cat) {
   currentFilter = cat;
   document.querySelectorAll(".filter-btn").forEach(b =>
@@ -78,12 +78,38 @@ function filterProducts(cat) {
   renderProducts();
 }
 
+// ── MEDIA HELPERS ─────────────────────────────────
+// Génère le contenu de la vignette produit (photo, vidéo, ou emoji fallback)
+function renderCardMedia(p) {
+  if (p.video_url && isVideo(p.video_url)) {
+    return `<video src="${p.video_url}" autoplay muted loop playsinline
+      style="width:100%;height:100%;object-fit:cover;display:block;"></video>`;
+  }
+  if (p.image_url) {
+    return `<img src="${p.image_url}" alt="${p.name}"
+      style="width:100%;height:100%;object-fit:cover;display:block;"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <span class="emoji" style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:3.2rem">${p.emoji||"💨"}</span>`;
+  }
+  // Fallback emoji
+  return `<span class="emoji">${p.emoji||"💨"}</span>`;
+}
+
+// Génère le média dans la modale (plus grand, avec galerie)
+function renderModalMedia(p) {
+  if (p.video_url && isVideo(p.video_url)) {
+    return `<video src="${p.video_url}" controls autoplay muted loop playsinline
+      style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:14px;background:#000"></video>`;
+  }
+  if (p.image_url) {
+    return `<img src="${p.image_url}" alt="${p.name}"
+      style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:14px;"
+      onerror="this.style.display='none'">`;
+  }
+  return `<div class="modal-emoji">${p.emoji||"💨"}</div>`;
+}
+
 // ── RENDU PRODUITS ────────────────────────────────
-// Structure CSS existante :
-// .product-card
-//   .product-badge (position: absolute top left)
-//   .product-img-wrap > .emoji
-//   .product-body > .product-cat / .product-name / .product-price + .product-unit / .product-min
 function renderProducts() {
   const grid = document.getElementById("productGrid");
   if (!grid) return;
@@ -98,7 +124,7 @@ function renderProducts() {
   }
 
   grid.innerHTML = filtered.map((p, i) => {
-    const gouts = p.gouts || [];
+    const gouts    = p.gouts || [];
     const stockInfo = p.stock === 0
       ? ` · <span style="color:#ff4757">Épuisé</span>`
       : p.stock < 50
@@ -111,8 +137,9 @@ function renderProducts() {
     return `
       <div class="product-card" style="animation-delay:${i*0.05}s" onclick="openModal(${p.id})">
         ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
-        <div class="product-img-wrap">
-          <span class="emoji">${p.emoji || "💨"}</span>
+        <div class="product-img-wrap" style="overflow:hidden;position:relative">
+          ${renderCardMedia(p)}
+          ${p.video_url ? `<span style="position:absolute;top:6px;right:6px;background:#00000099;border-radius:5px;font-size:10px;padding:2px 6px;color:#fff">▶ vidéo</span>` : ""}
         </div>
         <div class="product-body">
           <div class="product-cat">${p.cat}</div>
@@ -129,9 +156,6 @@ function renderProducts() {
 }
 
 // ── MODAL ─────────────────────────────────────────
-// ⚠️ Le CSS utilise .open (pas .active) :
-// .modal-overlay.open { opacity:1; pointer-events:all; }
-// .modal-overlay.open .modal { transform:translateY(0); }
 function openModal(id) {
   const p = products.find(x => x.id === id);
   if (!p) return;
@@ -146,7 +170,8 @@ function openModal(id) {
   modal.innerHTML = `
     <button class="modal-close" onclick="closeModal()">✕</button>
 
-    <div class="modal-emoji">${p.emoji || "💨"}</div>
+    ${renderModalMedia(p)}
+
     <div class="modal-cat">
       ${p.cat}${p.badge ? `&nbsp;<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
     </div>
@@ -159,12 +184,11 @@ function openModal(id) {
     ${hasGouts ? `
     <div style="margin:16px 0 8px">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Choisir le goût</label>
-      <select id="modalGout" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:11px 14px;outline:none;cursor:pointer;font-family:inherit;transition:border-color .2s">
+      <select id="modalGout" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:11px 14px;outline:none;cursor:pointer;font-family:inherit">
         <option value="">— Sélectionner un goût —</option>
         ${gouts.map(g => `<option value="${g}">${g}</option>`).join("")}
       </select>
-    </div>
-    ` : ""}
+    </div>` : ""}
 
     <div style="margin:14px 0 8px">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Quantité</label>
@@ -232,7 +256,7 @@ function addToCart(id, qty, gout = null) {
   if (existing) {
     existing.qty += qty;
   } else {
-    cart.push({ key, id, name: p.name, emoji: p.emoji, price: p.price, qty, gout });
+    cart.push({ key, id, name: p.name, emoji: p.emoji, image_url: p.image_url, price: p.price, qty, gout });
   }
 
   tg.HapticFeedback.impactOccurred("light");
@@ -282,11 +306,16 @@ function renderCart() {
   const total     = getTotal();
   const livraison = getLivraison();
 
+  // Miniature panier : photo si dispo, sinon emoji
+  const cartThumb = item => item.image_url
+    ? `<img src="${item.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`
+    : (item.emoji || "💨");
+
   content.innerHTML = `
     <div class="cart-items">
       ${cart.map(item => `
         <div class="cart-item">
-          <div class="cart-item-emoji">${item.emoji || "💨"}</div>
+          <div class="cart-item-emoji">${cartThumb(item)}</div>
           <div class="cart-item-info">
             <div class="cart-item-name">${item.name}</div>
             ${item.gout ? `<div style="font-size:.74rem;color:var(--accent);margin-bottom:2px">🍬 ${item.gout}</div>` : ""}
@@ -318,7 +347,7 @@ function renderCart() {
       ${livraison > 0 ? `<div style="font-size:.74rem;color:var(--text3);padding:3px 0">🚚 Livraison offerte dès 200 € (manque ${(200-total).toFixed(2)} €)</div>` : ""}
       <div class="summary-row total">
         <span>Total TTC</span>
-        <span>${(total+livraison).toFixed(2).replace(".", ",")} €</span>
+        <span>${(total + livraison).toFixed(2).replace(".", ",")} €</span>
       </div>
     </div>
 
@@ -339,7 +368,7 @@ async function checkout() {
   const order = {
     id: orderId,
     telegram_user: username,
-    items:    cart.map(i => ({ name:i.name, gout:i.gout||null, qty:i.qty, price:i.price })),
+    items:    cart.map(i => ({ name: i.name, gout: i.gout||null, qty: i.qty, price: i.price })),
     total:    parseFloat(total.toFixed(2)),
     livraison:parseFloat(livraison.toFixed(2)),
     status:   "nouveau",
@@ -368,16 +397,14 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove("show"), 2500);
 }
 
-// ── FALLBACK ──────────────────────────────────────
+// ── FALLBACK (si Supabase indispo) ────────────────
 const FALLBACK_PRODUCTS = [
-  {id:1,cat:"puff",emoji:"💨",name:"Elf Bar 600",price:3.50,unit:"/ unité",min_qty:10,badge:"top",stock:1200,
+  {id:1,cat:"puff",emoji:"💨",name:"Elf Bar 600",price:3.50,unit:"/ unité",min_qty:10,badge:"top",stock:1200,image_url:"",video_url:"",
    gouts:["Mix Fruits","Fraise Kiwi","Pastèque Glace","Menthe","Mangue","Pêche Glace"]},
-  {id:2,cat:"puff",emoji:"🌟",name:"Vozol Star 6000",price:5.20,unit:"/ unité",min_qty:10,badge:"promo",stock:800,
+  {id:2,cat:"puff",emoji:"🌟",name:"Vozol Star 6000",price:5.20,unit:"/ unité",min_qty:10,badge:"promo",stock:800,image_url:"",video_url:"",
    gouts:["Citron Givré","Mangue Glacée","Pastèque Menthe","Raisin Glace","Fraise"]},
-  {id:3,cat:"puff",emoji:"🍇",name:"Lost Mary BM600",price:3.80,unit:"/ unité",min_qty:10,badge:"new",stock:600,
-   gouts:["Raisin","Triple Melon","Fraise Kiwi","Myrtille Framboise"]},
-  {id:7,cat:"recharge",emoji:"🔋",name:"Pack Recharge USB-C ×50",price:18.00,unit:"/ pack",min_qty:1,badge:"new",stock:200,gouts:[]},
-  {id:9,cat:"accessoire",emoji:"🏷️",name:"Présentoir de comptoir",price:12.00,unit:"/ unité",min_qty:1,badge:null,stock:80,gouts:[]},
+  {id:7,cat:"recharge",emoji:"🔋",name:"Pack Recharge USB-C ×50",price:18.00,unit:"/ pack",min_qty:1,badge:"new",stock:200,image_url:"",video_url:"",gouts:[]},
+  {id:9,cat:"accessoire",emoji:"🏷️",name:"Présentoir de comptoir",price:12.00,unit:"/ unité",min_qty:1,badge:null,stock:80,image_url:"",video_url:"",gouts:[]},
 ];
 
 // ── START ─────────────────────────────────────────
