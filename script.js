@@ -376,6 +376,25 @@ async function checkout() {
 
   try {
     await sbPost("orders", order);
+
+    // ── Décrémenter le stock de chaque produit commandé ──
+    for (const item of cart) {
+      const p = products.find(x => x.id === item.id);
+      if (!p || p.stock <= 0) continue;
+      const newStock = Math.max(0, p.stock - item.qty);
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${p.id}`, {
+          method: "PATCH",
+          headers: { ...SB_HEADERS, "Prefer": "return=minimal" },
+          body: JSON.stringify({ stock: newStock }),
+        });
+        // Mettre à jour le stock en local aussi
+        p.stock = newStock;
+      } catch(e) {
+        console.warn(`Stock non mis à jour pour ${p.name}:`, e);
+      }
+    }
+
     showToast("✅ Commande envoyée ! On vous contacte bientôt.");
     cart = [];
     updateCartBadge();
