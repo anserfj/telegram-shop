@@ -124,31 +124,40 @@ function renderProducts() {
   }
 
   grid.innerHTML = filtered.map((p, i) => {
-    const gouts    = p.gouts || [];
-    const stockInfo = p.stock === 0
-      ? ` · <span style="color:#ff4757">Épuisé</span>`
-      : p.stock < 50
-        ? ` · <span style="color:#ff9f43">Stock faible</span>`
-        : "";
+    const gouts = p.gouts || [];
+    const epuise = p.stock === 0;
+    const faible = !epuise && p.stock < 50;
+
+    // Badge automatique : épuisé > stock faible > badge manuel
+    const badgeHtml = epuise
+      ? `<span class="product-badge" style="background:#ff4757;color:#fff;position:absolute;top:7px;left:7px;z-index:2;font-size:9px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:4px;text-transform:uppercase">ÉPUISÉ</span>`
+      : faible
+        ? `<span class="product-badge" style="background:#ff9f43;color:#000;position:absolute;top:7px;left:7px;z-index:2;font-size:9px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:4px;text-transform:uppercase">STOCK FAIBLE</span>`
+        : p.badge
+          ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>`
+          : "";
+
     const goutsInfo = gouts.length > 0
       ? ` · <span style="color:var(--accent)">${gouts.length} goûts</span>`
       : "";
 
     return `
-      <div class="product-card" style="animation-delay:${i*0.05}s" onclick="openModal(${p.id})">
-        ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
+      <div class="product-card" style="animation-delay:${i*0.05}s;${epuise?"opacity:.55;filter:grayscale(.4)":""}" onclick="openModal(${p.id})">
+        ${badgeHtml}
         <div class="product-img-wrap" style="overflow:hidden;position:relative">
           ${renderCardMedia(p)}
-          ${p.video_url ? `<span style="position:absolute;top:6px;right:6px;background:#00000099;border-radius:5px;font-size:10px;padding:2px 6px;color:#fff">▶ vidéo</span>` : ""}
+          ${epuise ? `<div style="position:absolute;inset:0;background:#00000055;display:flex;align-items:center;justify-content:center"><span style="background:#ff4757;color:#fff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;letter-spacing:.06em">ÉPUISÉ</span></div>` : ""}
+          ${p.video_url && !epuise ? `<span style="position:absolute;top:6px;right:6px;background:#00000099;border-radius:5px;font-size:10px;padding:2px 6px;color:#fff">▶ vidéo</span>` : ""}
         </div>
         <div class="product-body">
           <div class="product-cat">${p.cat}</div>
           <div class="product-name">${p.name}</div>
-          <div class="product-price">${p.price.toFixed(2).replace(".", ",")} €
+          <div class="product-price" style="color:${epuise?"var(--text3)":"var(--accent)"}">
+            ${p.price.toFixed(2).replace(".", ",")} €
             <span class="product-unit">${p.unit}</span>
           </div>
           <div class="product-min" style="font-size:.72rem;color:var(--text3);margin-top:5px">
-            Min. ${p.min_qty} unités${goutsInfo}${stockInfo}
+            ${epuise ? "Produit épuisé" : `Min. ${p.min_qty} unités${goutsInfo}`}
           </div>
         </div>
       </div>`;
@@ -359,15 +368,17 @@ function renderCart() {
 async function checkout() {
   if (cart.length === 0) return showToast("Votre panier est vide");
 
-  const user     = tg.initDataUnsafe?.user;
-  const username = user?.username ? `@${user.username}` : (user?.first_name || "client");
-  const total    = getTotal();
-  const livraison= getLivraison();
-  const orderId  = "CMD-" + Date.now().toString().slice(-6);
+  const user      = tg.initDataUnsafe?.user;
+  const username  = user?.username ? `@${user.username}` : (user?.first_name || "client");
+  const telegramId = user?.id || null;
+  const total     = getTotal();
+  const livraison = getLivraison();
+  const orderId   = "CMD-" + Date.now().toString().slice(-6);
 
   const order = {
     id: orderId,
     telegram_user: username,
+    telegram_id: telegramId,
     items:    cart.map(i => ({ name: i.name, gout: i.gout||null, qty: i.qty, price: i.price })),
     total:    parseFloat(total.toFixed(2)),
     livraison:parseFloat(livraison.toFixed(2)),
