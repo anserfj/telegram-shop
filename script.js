@@ -366,87 +366,109 @@ function renderCart() {
 
 // ── FORMULAIRE LIVRAISON ──────────────────────────
 function showDeliveryForm() {
-  const overlay = document.getElementById("modalOverlay");
-  const modal   = document.getElementById("modal");
-  if (!overlay || !modal) return;
+  // Supprimer une éventuelle modale existante
+  document.getElementById("dlvOverlay")?.remove();
 
   const total     = getTotal();
   const livraison = getLivraison();
 
-  modal.innerHTML = `
-    <button class="modal-close" onclick="closeModal()">✕</button>
+  const el = document.createElement("div");
+  el.id = "dlvOverlay";
+  el.style.cssText = "position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px)";
 
-    <div class="modal-name" style="font-size:1.4rem;margin-bottom:4px">📦 Informations de livraison</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:20px">Remplissez vos coordonnées pour finaliser la commande</div>
+  el.innerHTML = `
+    <div id="dlvPanel" style="width:100%;max-width:480px;background:var(--bg2,#111418);border-radius:20px 20px 0 0;border:1px solid var(--border,#222830);border-bottom:none;padding:22px 18px 32px;max-height:92vh;overflow-y:auto;box-sizing:border-box;">
 
-    <div style="display:flex;flex-direction:column;gap:13px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.05em;color:var(--text,#eef2f7)">📦 Informations de livraison</div>
+        <button onclick="closeDeliveryForm()" style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:8px;color:var(--text2,#8b9ab0);cursor:pointer;font-size:18px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="display:flex;flex-direction:column;gap:13px">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Prénom <span style="color:#ff4757">*</span></label>
+            <input id="dlv_prenom" placeholder="Jean" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Nom <span style="color:#ff4757">*</span></label>
+            <input id="dlv_nom" placeholder="Dupont" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+          </div>
+        </div>
+
         <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Prénom <span style="color:#ff4757">*</span></label>
-          <input id="dlv_prenom" placeholder="Jean" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Adresse <span style="color:#ff4757">*</span></label>
+          <input id="dlv_adresse" placeholder="12 rue de la Paix" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+            onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
         </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Code postal <span style="color:#ff4757">*</span></label>
+            <input id="dlv_cp" placeholder="75001" maxlength="5" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Ville <span style="color:#ff4757">*</span></label>
+            <input id="dlv_ville" placeholder="Paris" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+          </div>
+        </div>
+
         <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Nom <span style="color:#ff4757">*</span></label>
-          <input id="dlv_nom" placeholder="Dupont" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Téléphone <span style="color:#ff4757">*</span></label>
+          <input id="dlv_tel" type="tel" placeholder="06 12 34 56 78" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+            onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
         </div>
-      </div>
 
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Adresse <span style="color:#ff4757">*</span></label>
-        <input id="dlv_adresse" placeholder="12 rue de la Paix" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px">
         <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Code postal <span style="color:#ff4757">*</span></label>
-          <input id="dlv_cp" placeholder="75001" maxlength="5" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Note (optionnel)</label>
+          <input id="dlv_note" placeholder="Digicode, instructions particulières..." style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+            onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
         </div>
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Ville <span style="color:#ff4757">*</span></label>
-          <input id="dlv_ville" placeholder="Paris" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+
+        <!-- Récap -->
+        <div style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;color:var(--text3,#4a5568);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Récap commande</div>
+          ${cart.map(i=>`
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+              <span style="color:var(--text2,#8b9ab0)">${i.name}${i.gout?` · <span style="color:var(--accent,#00e5ff)">${i.gout}</span>`:""} ×${i.qty}</span>
+              <span style="font-weight:600;color:var(--text,#eef2f7)">${(i.price*i.qty).toFixed(2).replace(".",",")} €</span>
+            </div>`).join("")}
+          <div style="border-top:1px solid var(--border,#222830);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:13px;font-weight:700;color:var(--text,#eef2f7)">Total TTC</span>
+            <div style="text-align:right">
+              <span style="font-size:15px;font-weight:700;color:var(--accent,#00e5ff)">${(total+livraison).toFixed(2).replace(".",",")} €</span>
+              ${livraison===0?`<div style="font-size:10px;color:#00e676">🚚 Livraison offerte</div>`:`<div style="font-size:10px;color:var(--text3,#4a5568)">dont ${livraison.toFixed(2).replace(".",",")} € livraison</div>`}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Téléphone <span style="color:#ff4757">*</span></label>
-        <input id="dlv_tel" type="tel" placeholder="06 12 34 56 78" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
-      </div>
+        <button onclick="submitOrder()" style="width:100%;padding:15px;border-radius:12px;background:var(--accent,#00e5ff);color:#000;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em;border:none;cursor:pointer;margin-top:4px">
+          ENVOYER MA COMMANDE SUR TELEGRAM →
+        </button>
 
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Note (optionnel)</label>
-        <input id="dlv_note" placeholder="Instructions particulières, digicode..." style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
-          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
       </div>
-
-      <!-- Récap commande -->
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Récap commande</div>
-        ${cart.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="color:var(--text2)">${i.name}${i.gout?` · ${i.gout}`:""} ×${i.qty}</span>
-          <span style="font-weight:600">${(i.price*i.qty).toFixed(2).replace(".",",")} €</span>
-        </div>`).join("")}
-        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between">
-          <span style="font-size:13px;font-weight:700">Total TTC</span>
-          <span style="font-size:13px;font-weight:700;color:var(--accent)">${(total+livraison).toFixed(2).replace(".",",")} €${livraison===0?' <span style="font-size:10px;color:#00e676">(livraison offerte)</span>':""}</span>
-        </div>
-      </div>
-
     </div>
-
-    <button class="modal-add-btn" onclick="submitOrder()" style="margin-top:18px;width:100%">
-      VALIDER ET ENVOYER LA COMMANDE →
-    </button>
   `;
 
-  overlay.classList.add("open");
+  // Fermer en cliquant sur le fond
+  el.addEventListener("click", e => { if(e.target === el) closeDeliveryForm(); });
+  document.body.appendChild(el);
   document.body.style.overflow = "hidden";
+  // Petite animation slide-up
+  const panel = el.querySelector("#dlvPanel");
+  panel.style.transform = "translateY(40px)";
+  panel.style.transition = "transform .3s cubic-bezier(.175,.885,.32,1.1)";
+  requestAnimationFrame(() => { panel.style.transform = "translateY(0)"; });
+}
+
+function closeDeliveryForm() {
+  document.getElementById("dlvOverlay")?.remove();
+  document.body.style.overflow = "";
 }
 
 // ── CHECKOUT (validation + envoi) ─────────────────
@@ -507,32 +529,25 @@ async function submitOrder() {
       } catch(e) { console.warn(`Stock non mis à jour pour ${p.name}:`, e); }
     }
 
-    // ── Construire le message Telegram pour @Willy ──
-    const lignes = cart.map(i =>
-      `• ${i.name}${i.gout ? ` (${i.gout})` : ""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`
-    ).join("%0A");
-
+    // ── Construire le message pour @Willy ──
     const msg = encodeURIComponent(
 `🛒 NOUVELLE COMMANDE — ${orderId}
 
 👤 Client : ${username}
 📱 Tél : ${tel}
-📦 Livraison : ${prenom} ${nom}
-${adresse}, ${cp} ${ville}${note ? `\n📝 Note : ${note}` : ""}
+📦 ${prenom} ${nom}
+${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
 
-Articles :
 ${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
 
 💰 Total : ${(total+livraison).toFixed(2).replace(".",",")} €${livraison===0?" (livraison offerte)":""}
 `);
 
-    closeModal();
+    closeDeliveryForm();
     cart = [];
     updateCartBadge();
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
-
-    // Ouvrir la conversation avec @Willy avec le message pré-rempli
     window.open(`https://t.me/Willy?text=${msg}`, "_blank");
 
   } catch(e) {
