@@ -364,16 +364,29 @@ function renderCart() {
   `;
 }
 
+const BOT_TOKEN = "8700497448:AAG8DKiQ8d43FUIYU1j5d7IoDouq2DRI3-s";
+
+async function sendBotMessage(chatId, text) {
+  if (!chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    });
+  } catch(e) { console.warn("Bot message failed:", e); }
+}
+
 // ── CHECKOUT ──────────────────────────────────────
 async function checkout() {
   if (cart.length === 0) return showToast("Votre panier est vide");
 
-  const user      = tg.initDataUnsafe?.user;
-  const username  = user?.username ? `@${user.username}` : (user?.first_name || "client");
+  const user       = tg.initDataUnsafe?.user;
+  const username   = user?.username ? `@${user.username}` : (user?.first_name || "client");
   const telegramId = user?.id || null;
-  const total     = getTotal();
-  const livraison = getLivraison();
-  const orderId   = "CMD-" + Date.now().toString().slice(-6);
+  const total      = getTotal();
+  const livraison  = getLivraison();
+  const orderId    = "CMD-" + Date.now().toString().slice(-6);
 
   const order = {
     id: orderId,
@@ -388,7 +401,7 @@ async function checkout() {
   try {
     await sbPost("orders", order);
 
-    // ── Décrémenter le stock de chaque produit commandé ──
+    // ── Décrémenter le stock ──
     for (const item of cart) {
       const p = products.find(x => x.id === item.id);
       if (!p || p.stock <= 0) continue;
@@ -399,11 +412,27 @@ async function checkout() {
           headers: { ...SB_HEADERS, "Prefer": "return=minimal" },
           body: JSON.stringify({ stock: newStock }),
         });
-        // Mettre à jour le stock en local aussi
         p.stock = newStock;
-      } catch(e) {
-        console.warn(`Stock non mis à jour pour ${p.name}:`, e);
-      }
+      } catch(e) { console.warn(`Stock non mis à jour pour ${p.name}:`, e); }
+    }
+
+    // ── Message bot au client ──
+    if (telegramId) {
+      const lignes = cart.map(i =>
+        `• ${i.name}${i.gout ? ` (${i.gout})` : ""} × ${i.qty} = ${(i.price * i.qty).toFixed(2).replace(".", ",")} €`
+      ).join("\n");
+      const msg =
+`✅ <b>Commande confirmée !</b>
+
+🧾 <b>${orderId}</b>
+${lignes}
+
+📦 Sous-total : ${total.toFixed(2).replace(".", ",")} €
+🚚 Livraison : ${livraison === 0 ? "OFFERTE" : livraison.toFixed(2).replace(".", ",") + " €"}
+💰 <b>Total : ${(total + livraison).toFixed(2).replace(".", ",")} €</b>
+
+On vous recontacte très vite pour confirmer la livraison. Merci ! 🙏`;
+      await sendBotMessage(telegramId, msg);
     }
 
     showToast("✅ Commande envoyée ! On vous contacte bientôt.");
