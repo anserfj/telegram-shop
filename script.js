@@ -364,22 +364,110 @@ function renderCart() {
   `;
 }
 
-const BOT_TOKEN = "8700497448:AAG8DKiQ8d43FUIYU1j5d7IoDouq2DRI3-s";
+// ── FORMULAIRE LIVRAISON ──────────────────────────
+function showDeliveryForm() {
+  const overlay = document.getElementById("modalOverlay");
+  const modal   = document.getElementById("modal");
+  if (!overlay || !modal) return;
 
-async function sendBotMessage(chatId, text) {
-  if (!chatId) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-    });
-  } catch(e) { console.warn("Bot message failed:", e); }
+  const total     = getTotal();
+  const livraison = getLivraison();
+
+  modal.innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+
+    <div class="modal-name" style="font-size:1.4rem;margin-bottom:4px">📦 Informations de livraison</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:20px">Remplissez vos coordonnées pour finaliser la commande</div>
+
+    <div style="display:flex;flex-direction:column;gap:13px">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Prénom <span style="color:#ff4757">*</span></label>
+          <input id="dlv_prenom" placeholder="Jean" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Nom <span style="color:#ff4757">*</span></label>
+          <input id="dlv_nom" placeholder="Dupont" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Adresse <span style="color:#ff4757">*</span></label>
+        <input id="dlv_adresse" placeholder="12 rue de la Paix" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Code postal <span style="color:#ff4757">*</span></label>
+          <input id="dlv_cp" placeholder="75001" maxlength="5" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Ville <span style="color:#ff4757">*</span></label>
+          <input id="dlv_ville" placeholder="Paris" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Téléphone <span style="color:#ff4757">*</span></label>
+        <input id="dlv_tel" type="tel" placeholder="06 12 34 56 78" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Note (optionnel)</label>
+        <input id="dlv_note" placeholder="Instructions particulières, digicode..." style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:10px 13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+      </div>
+
+      <!-- Récap commande -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Récap commande</div>
+        ${cart.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="color:var(--text2)">${i.name}${i.gout?` · ${i.gout}`:""} ×${i.qty}</span>
+          <span style="font-weight:600">${(i.price*i.qty).toFixed(2).replace(".",",")} €</span>
+        </div>`).join("")}
+        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between">
+          <span style="font-size:13px;font-weight:700">Total TTC</span>
+          <span style="font-size:13px;font-weight:700;color:var(--accent)">${(total+livraison).toFixed(2).replace(".",",")} €${livraison===0?' <span style="font-size:10px;color:#00e676">(livraison offerte)</span>':""}</span>
+        </div>
+      </div>
+
+    </div>
+
+    <button class="modal-add-btn" onclick="submitOrder()" style="margin-top:18px;width:100%">
+      VALIDER ET ENVOYER LA COMMANDE →
+    </button>
+  `;
+
+  overlay.classList.add("open");
+  document.body.style.overflow = "hidden";
 }
 
-// ── CHECKOUT ──────────────────────────────────────
-async function checkout() {
-  if (cart.length === 0) return showToast("Votre panier est vide");
+// ── CHECKOUT (validation + envoi) ─────────────────
+async function submitOrder() {
+  // Validation champs obligatoires
+  const prenom  = document.getElementById("dlv_prenom")?.value.trim();
+  const nom     = document.getElementById("dlv_nom")?.value.trim();
+  const adresse = document.getElementById("dlv_adresse")?.value.trim();
+  const cp      = document.getElementById("dlv_cp")?.value.trim();
+  const ville   = document.getElementById("dlv_ville")?.value.trim();
+  const tel     = document.getElementById("dlv_tel")?.value.trim();
+  const note    = document.getElementById("dlv_note")?.value.trim();
+
+  if (!prenom || !nom || !adresse || !cp || !ville || !tel) {
+    showToast("⚠️ Veuillez remplir tous les champs obligatoires");
+    // Highlight champs vides
+    [["dlv_prenom",prenom],["dlv_nom",nom],["dlv_adresse",adresse],["dlv_cp",cp],["dlv_ville",ville],["dlv_tel",tel]].forEach(([id,val])=>{
+      if(!val) document.getElementById(id).style.borderColor = "#ff4757";
+    });
+    return;
+  }
 
   const user       = tg.initDataUnsafe?.user;
   const username   = user?.username ? `@${user.username}` : (user?.first_name || "client");
@@ -387,6 +475,8 @@ async function checkout() {
   const total      = getTotal();
   const livraison  = getLivraison();
   const orderId    = "CMD-" + Date.now().toString().slice(-6);
+
+  const livraison_info = { prenom, nom, adresse, cp, ville, tel, note: note || null };
 
   const order = {
     id: orderId,
@@ -396,6 +486,7 @@ async function checkout() {
     total:    parseFloat(total.toFixed(2)),
     livraison:parseFloat(livraison.toFixed(2)),
     status:   "nouveau",
+    livraison_info,
   };
 
   try {
@@ -416,35 +507,43 @@ async function checkout() {
       } catch(e) { console.warn(`Stock non mis à jour pour ${p.name}:`, e); }
     }
 
-    // ── Message bot au client ──
-    if (telegramId) {
-      const lignes = cart.map(i =>
-        `• ${i.name}${i.gout ? ` (${i.gout})` : ""} × ${i.qty} = ${(i.price * i.qty).toFixed(2).replace(".", ",")} €`
-      ).join("\n");
-      const msg =
-`✅ <b>Commande confirmée !</b>
+    // ── Construire le message Telegram pour @Willy ──
+    const lignes = cart.map(i =>
+      `• ${i.name}${i.gout ? ` (${i.gout})` : ""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`
+    ).join("%0A");
 
-🧾 <b>${orderId}</b>
-${lignes}
+    const msg = encodeURIComponent(
+`🛒 NOUVELLE COMMANDE — ${orderId}
 
-📦 Sous-total : ${total.toFixed(2).replace(".", ",")} €
-🚚 Livraison : ${livraison === 0 ? "OFFERTE" : livraison.toFixed(2).replace(".", ",") + " €"}
-💰 <b>Total : ${(total + livraison).toFixed(2).replace(".", ",")} €</b>
+👤 Client : ${username}
+📱 Tél : ${tel}
+📦 Livraison : ${prenom} ${nom}
+${adresse}, ${cp} ${ville}${note ? `\n📝 Note : ${note}` : ""}
 
-On vous recontacte très vite pour confirmer la livraison. Merci ! 🙏`;
-      await sendBotMessage(telegramId, msg);
-    }
+Articles :
+${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
 
-    showToast("✅ Commande envoyée ! On vous contacte bientôt.");
+💰 Total : ${(total+livraison).toFixed(2).replace(".",",")} €${livraison===0?" (livraison offerte)":""}
+`);
+
+    closeModal();
     cart = [];
     updateCartBadge();
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
-    tg.sendData(JSON.stringify({ orderId, total: total + livraison }));
+
+    // Ouvrir la conversation avec @Willy avec le message pré-rempli
+    window.open(`https://t.me/Willy?text=${msg}`, "_blank");
+
   } catch(e) {
     console.error(e);
     showToast("❌ Erreur lors de l'envoi, réessayez.");
   }
+}
+
+function checkout() {
+  if (cart.length === 0) return showToast("Votre panier est vide");
+  showDeliveryForm();
 }
 
 // ── TOAST ─────────────────────────────────────────
