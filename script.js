@@ -548,7 +548,7 @@ ${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.pric
     updateCartBadge();
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
-    window.open(`https://t.me/Willy?text=${msg}`, "_blank");
+    window.open(`https://t.me/wilIIly?text=${msg}`, "_blank");
 
   } catch(e) {
     console.error(e);
