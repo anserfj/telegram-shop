@@ -549,11 +549,8 @@ ${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.pric
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
 
-    const telegramUrl = `https://t.me/Willy?text=${msg}`;
-    // Sur Telegram mobile : utiliser l'API native
-    if (tg.openTelegramLink) {
-      tg.openTelegramLink(telegramUrl);
-    } else if (tg.openLink) {
+    const telegramUrl = `https://t.me/wilIIly?text=${msg}`;
+    if (tg.openLink) {
       tg.openLink(telegramUrl);
     } else {
       window.open(telegramUrl, "_blank");
