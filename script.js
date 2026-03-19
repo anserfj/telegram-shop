@@ -549,8 +549,8 @@ ${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.pric
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
 
-    // tg:// ouvre directement l'app Telegram avec le texte pré-rempli sans passer par Safari
-    window.location.href = `tg://resolve?domain=wilIIly&text=${msg}`;
+    const telegramUrl = `https://t.me/wilIIly?text=${msg}`;
+    tg.openLink(telegramUrl, { try_instant_view: false });
 
   } catch(e) {
     console.error(e);
