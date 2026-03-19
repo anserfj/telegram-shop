@@ -548,7 +548,16 @@ ${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.pric
     updateCartBadge();
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
-    window.open(`https://t.me/wilIIly?text=${msg}`, "_blank");
+
+    const telegramUrl = `https://t.me/Willy?text=${msg}`;
+    // Sur Telegram mobile : utiliser l'API native
+    if (tg.openTelegramLink) {
+      tg.openTelegramLink(telegramUrl);
+    } else if (tg.openLink) {
+      tg.openLink(telegramUrl);
+    } else {
+      window.open(telegramUrl, "_blank");
+    }
 
   } catch(e) {
     console.error(e);
