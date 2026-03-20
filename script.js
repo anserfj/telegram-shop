@@ -515,20 +515,7 @@ async function submitOrder() {
   try {
     await sbPost("orders", order);
 
-    // ── Décrémenter le stock ──
-    for (const item of cart) {
-      const p = products.find(x => x.id === item.id);
-      if (!p || p.stock <= 0) continue;
-      const newStock = Math.max(0, p.stock - item.qty);
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${p.id}`, {
-          method: "PATCH",
-          headers: { ...SB_HEADERS, "Prefer": "return=minimal" },
-          body: JSON.stringify({ stock: newStock }),
-        });
-        p.stock = newStock;
-      } catch(e) { console.warn(`Stock non mis à jour pour ${p.name}:`, e); }
-    }
+    // Stock géré dans le dashboard (déduit au statut "payé", remis si "annulé")
 
     // ── Construire le message pour @Willy ──
     const cartSnapshot = [...cart]; // snapshot avant de vider le panier
