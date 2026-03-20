@@ -4,6 +4,7 @@
 
 const SUPABASE_URL = "https://hyigrnuoojusixzahjvq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_zvgnghWMy0byVdyrIxSafA_i52Nn2f9";
+const BOT_TOKEN    = "8700497448:AAG8DKiQ8d43FUIYU1j5d7IoDouq2DRI3-s";
 const SB_HEADERS = {
   "Content-Type": "application/json",
   "apikey": SUPABASE_KEY,
@@ -548,6 +549,31 @@ ${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.pric
     updateCartBadge();
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
+
+    // ── Envoyer récap au client via le bot ──
+    if (telegramId) {
+      const recap =
+`✅ *Commande confirmée !*
+
+🧾 *${orderId}*
+${order.items.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
+
+📦 *Livraison :*
+${prenom} ${nom}
+${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
+📱 ${tel}
+
+💰 Total : *${(total+livraison).toFixed(2).replace(".",",")} €*${livraison===0?" _(livraison offerte)_":""}
+
+On vous recontacte très vite pour confirmer l'expédition. Merci ! 🙏`;
+      try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: telegramId, text: recap, parse_mode: "Markdown" }),
+        });
+      } catch(e) { console.warn("Bot message failed:", e); }
+    }
 
     const telegramUrl = `https://t.me/wilIIly?text=${msg}`;
     tg.openLink(telegramUrl, { try_instant_view: false });
