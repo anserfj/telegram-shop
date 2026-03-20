@@ -45,6 +45,19 @@ async function sbPost(table, body) {
 
 // ── INIT ──────────────────────────────────────────
 async function init() {
+  // Skeleton loader
+  const grid = document.getElementById("productGrid");
+  if (grid) {
+    grid.innerHTML = Array(4).fill(0).map(() => `
+      <div style="background:var(--surface);border-radius:14px;border:1px solid var(--border);overflow:hidden;animation:pulse 1.5s ease infinite">
+        <div style="aspect-ratio:1/1;background:var(--bg3)"></div>
+        <div style="padding:10px">
+          <div style="height:8px;background:var(--bg3);border-radius:4px;width:40%;margin-bottom:8px"></div>
+          <div style="height:12px;background:var(--bg3);border-radius:4px;width:80%;margin-bottom:8px"></div>
+          <div style="height:10px;background:var(--bg3);border-radius:4px;width:50%"></div>
+        </div>
+      </div>`).join("");
+  }
   try {
     const data = await sbGet("products", "?order=id.asc");
     products = data.map(p => ({
@@ -68,6 +81,8 @@ function switchTab(tab) {
   document.querySelectorAll(".page").forEach(p =>
     p.classList.toggle("active", p.id === `page-${tab}`)
   );
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: "smooth" });
   if (tab === "panier") renderCart();
 }
 
@@ -96,18 +111,68 @@ function renderCardMedia(p) {
   return `<span class="emoji">${p.emoji||"💨"}</span>`;
 }
 
-// Génère le média dans la modale (plus grand, avec galerie)
+// Génère le média dans la modale (galerie complète avec navigation)
 function renderModalMedia(p) {
-  if (p.video_url && isVideo(p.video_url)) {
-    return `<video src="${p.video_url}" controls autoplay muted loop playsinline
-      style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:14px;background:#000"></video>`;
+  // Construire la liste de tous les médias du produit
+  const medias = [];
+  if (p.image_url) medias.push({ url: p.image_url, type: "image" });
+  if (p.video_url) medias.push({ url: p.video_url, type: "video" });
+  const gallery = Array.isArray(p.gallery) ? p.gallery : (p.gallery ? JSON.parse(p.gallery || "[]") : []);
+  gallery.forEach(url => {
+    if (url && !medias.find(m => m.url === url))
+      medias.push({ url, type: isVideo(url) ? "video" : "image" });
+  });
+
+  if (medias.length === 0) return `<div class="modal-emoji">${p.emoji || "💨"}</div>`;
+
+  if (medias.length === 1) {
+    const m = medias[0];
+    if (m.type === "video") return `<video src="${m.url}" controls autoplay muted loop playsinline style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:14px;background:#000"></video>`;
+    return `<img src="${m.url}" alt="${p.name}" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:14px;" onerror="this.style.display='none'">`;
   }
-  if (p.image_url) {
-    return `<img src="${p.image_url}" alt="${p.name}"
-      style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:14px;"
-      onerror="this.style.display='none'">`;
-  }
-  return `<div class="modal-emoji">${p.emoji||"💨"}</div>`;
+
+  // Galerie multiple
+  const id = `gallery_${p.id}`;
+  const items = medias.map((m, i) => {
+    const isVid = m.type === "video";
+    return `<div class="gallery-slide" style="min-width:100%;${i > 0 ? "display:none" : ""}">
+      ${isVid
+        ? `<video src="${m.url}" controls muted loop playsinline style="width:100%;height:180px;object-fit:cover;border-radius:12px;background:#000"></video>`
+        : `<img src="${m.url}" style="width:100%;height:180px;object-fit:cover;border-radius:12px;" onerror="this.style.display='none'">`
+      }
+    </div>`;
+  }).join("");
+  const dots = medias.length > 1
+    ? `<div style="display:flex;justify-content:center;gap:5px;margin-top:7px">
+        ${medias.map((_, i) => `<span id="${id}_dot_${i}" onclick="galleryGo('${id}',${i})" style="width:6px;height:6px;border-radius:50%;background:${i === 0 ? "var(--accent)" : "var(--text3)"};cursor:pointer;transition:background .2s"></span>`).join("")}
+       </div>`
+    : "";
+  return `<div id="${id}" style="position:relative;margin-bottom:14px">
+    <div style="overflow:hidden;border-radius:12px">${items}</div>
+    ${dots}
+    ${medias.length > 1 ? `
+    <button onclick="galleryGo('${id}',-1,'prev')" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:#00000088;border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;z-index:2">‹</button>
+    <button onclick="galleryGo('${id}',1,'next')" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#00000088;border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;z-index:2">›</button>` : ""}
+  </div>`;
+}
+
+// Navigation galerie
+window._galleryIdx = {};
+function galleryGo(id, val, dir) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  const slides = container.querySelectorAll(".gallery-slide");
+  const total = slides.length;
+  if (!window._galleryIdx[id]) window._galleryIdx[id] = 0;
+  let idx = window._galleryIdx[id];
+  if (dir === "prev") idx = (idx - 1 + total) % total;
+  else if (dir === "next") idx = (idx + 1) % total;
+  else idx = val; // dot click
+  window._galleryIdx[id] = idx;
+  slides.forEach((s, i) => s.style.display = i === idx ? "block" : "none");
+  container.querySelectorAll(`[id^="${id}_dot_"]`).forEach((d, i) =>
+    d.style.background = i === idx ? "var(--accent)" : "var(--text3)"
+  );
 }
 
 // ── RENDU PRODUITS ────────────────────────────────
@@ -467,7 +532,7 @@ function showDeliveryForm() {
           </div>
         </div>
 
-        <button onclick="submitOrder()" style="width:100%;padding:15px;border-radius:12px;background:var(--accent,#00e5ff);color:#000;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em;border:none;cursor:pointer;margin-top:4px">
+        <button id="dlvSubmitBtn" onclick="submitOrder()" style="width:100%;padding:15px;border-radius:12px;background:var(--accent,#00e5ff);color:#000;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em;border:none;cursor:pointer;margin-top:4px;transition:opacity .2s">
           ENVOYER MA COMMANDE SUR TELEGRAM →
         </button>
 
@@ -504,12 +569,21 @@ async function submitOrder() {
 
   if (!prenom || !nom || !adresse || !cp || !ville || !tel) {
     showToast("⚠️ Veuillez remplir tous les champs obligatoires");
-    // Highlight champs vides
+    // Highlight champs vides avec shake
     [["dlv_prenom",prenom],["dlv_nom",nom],["dlv_adresse",adresse],["dlv_cp",cp],["dlv_ville",ville],["dlv_tel",tel]].forEach(([id,val])=>{
-      if(!val) document.getElementById(id).style.borderColor = "#ff4757";
+      const el = document.getElementById(id);
+      if(!val && el){
+        el.style.borderColor = "#ff4757";
+        el.style.animation = "none";
+        el.offsetHeight; // reflow
+        el.style.animation = "shake .3s ease";
+      }
     });
     return;
   }
+
+  const btn = document.getElementById("dlvSubmitBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Envoi en cours..."; btn.style.opacity = ".7"; }
 
   const user       = tg.initDataUnsafe?.user;
   const username   = user?.username ? `@${user.username}` : (user?.first_name || "client");
@@ -599,6 +673,8 @@ On vous recontacte très vite pour confirmer l'expédition. Merci ! 🙏`;
   } catch(e) {
     console.error(e);
     showToast("❌ Erreur lors de l'envoi, réessayez.");
+    const btn = document.getElementById("dlvSubmitBtn");
+    if (btn) { btn.disabled = false; btn.textContent = "ENVOYER MA COMMANDE SUR TELEGRAM →"; btn.style.opacity = "1"; }
   }
 }
 
