@@ -127,7 +127,10 @@ function renderProducts() {
   grid.innerHTML = filtered.map((p, i) => {
     const gouts = p.gouts || [];
     const epuise = p.stock === 0;
-    const faible = !epuise && p.stock < 50;
+    const seuilFaible = p.low_stock_alert || 50;
+    const faible = !epuise && p.stock < seuilFaible;
+    const discount = p.compare_price && p.compare_price > p.price
+      ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
 
     // Badge automatique : épuisé > stock faible > badge manuel
     const badgeHtml = epuise
@@ -138,6 +141,10 @@ function renderProducts() {
           ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>`
           : "";
 
+    const discountBadge = discount > 0 && !epuise
+      ? `<span style="position:absolute;top:6px;right:6px;background:#ff4757;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;z-index:2">-${discount}%</span>`
+      : "";
+
     const goutsInfo = gouts.length > 0
       ? ` · <span style="color:var(--accent)">${gouts.length} goûts</span>`
       : "";
@@ -147,14 +154,16 @@ function renderProducts() {
         ${badgeHtml}
         <div class="product-img-wrap" style="overflow:hidden;position:relative">
           ${renderCardMedia(p)}
+          ${discountBadge}
           ${epuise ? `<div style="position:absolute;inset:0;background:#00000055;display:flex;align-items:center;justify-content:center"><span style="background:#ff4757;color:#fff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;letter-spacing:.06em">ÉPUISÉ</span></div>` : ""}
-          ${p.video_url && !epuise ? `<span style="position:absolute;top:6px;right:6px;background:#00000099;border-radius:5px;font-size:10px;padding:2px 6px;color:#fff">▶ vidéo</span>` : ""}
+          ${p.video_url && !epuise ? `<span style="position:absolute;bottom:6px;right:6px;background:#00000099;border-radius:5px;font-size:10px;padding:2px 6px;color:#fff">▶ vidéo</span>` : ""}
         </div>
         <div class="product-body">
           <div class="product-cat">${p.cat}</div>
           <div class="product-name">${p.name}</div>
           <div class="product-price" style="color:${epuise?"var(--text3)":"var(--accent)"}">
             ${p.price.toFixed(2).replace(".", ",")} €
+            ${p.compare_price && p.compare_price > p.price ? `<span style="font-size:.7rem;color:var(--text3);text-decoration:line-through;margin-left:4px">${parseFloat(p.compare_price).toFixed(2).replace(".",",")} €</span>` : ""}
             <span class="product-unit">${p.unit}</span>
           </div>
           <div class="product-min" style="font-size:.72rem;color:var(--text3);margin-top:5px">
@@ -176,6 +185,9 @@ function openModal(id) {
 
   const gouts    = p.gouts || [];
   const hasGouts = gouts.length > 0;
+  const discount = p.compare_price && p.compare_price > p.price
+    ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
+  const seuilFaible = p.low_stock_alert || 50;
 
   modal.innerHTML = `
     <button class="modal-close" onclick="closeModal()">✕</button>
@@ -184,10 +196,14 @@ function openModal(id) {
 
     <div class="modal-cat">
       ${p.cat}${p.badge ? `&nbsp;<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ""}
+      ${discount > 0 ? `&nbsp;<span style="background:#ff4757;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px">-${discount}%</span>` : ""}
     </div>
     <div class="modal-name">${p.name}</div>
-    <div class="modal-price">
-      ${p.price.toFixed(2).replace(".", ",")} €
+    <div class="modal-price" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+      <span style="color:var(--accent);font-size:1.4rem;font-weight:700">${p.price.toFixed(2).replace(".", ",")} €</span>
+      ${p.compare_price && p.compare_price > p.price
+        ? `<span style="color:var(--text3);font-size:.9rem;text-decoration:line-through">${parseFloat(p.compare_price).toFixed(2).replace(".",",")} €</span>`
+        : ""}
       <span class="modal-price-unit">${p.unit} · min. ${p.min_qty}</span>
     </div>
 
@@ -211,7 +227,7 @@ function openModal(id) {
       </div>
     </div>
 
-    ${p.stock > 0 && p.stock < 100 ? `<p style="font-size:.78rem;color:#ff9f43;margin:8px 0">⚠️ Stock : ${p.stock} unités restantes</p>` : ""}
+    ${p.stock > 0 && p.stock < seuilFaible ? `<p style="font-size:.78rem;color:#ff9f43;margin:8px 0">⚠️ Plus que ${p.stock} unités en stock !</p>` : ""}
     ${p.stock === 0 ? `<p style="font-size:.78rem;color:#ff4757;margin:8px 0">❌ Produit épuisé</p>` : ""}
 
     <div style="margin-top:18px">
@@ -292,7 +308,10 @@ function changeQty(key, delta) {
 
 function updateCartBadge() {
   const el = document.getElementById("cartCount");
-  if (el) el.textContent = cart.reduce((s, x) => s + x.qty, 0);
+  if (!el) return;
+  const total = cart.reduce((s, x) => s + x.qty, 0);
+  el.textContent = total;
+  el.classList.toggle("visible", total > 0);
 }
 
 function getTotal()    { return cart.reduce((s, x) => s + x.price * x.qty, 0); }
