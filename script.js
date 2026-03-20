@@ -531,6 +531,7 @@ async function submitOrder() {
     }
 
     // ── Construire le message pour @Willy ──
+    const cartSnapshot = [...cart]; // snapshot avant de vider le panier
     const msg = encodeURIComponent(
 `🛒 NOUVELLE COMMANDE — ${orderId}
 
@@ -539,24 +540,18 @@ async function submitOrder() {
 📦 ${prenom} ${nom}
 ${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
 
-${cart.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
+${cartSnapshot.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
 
 💰 Total : ${(total+livraison).toFixed(2).replace(".",",")} €${livraison===0?" (livraison offerte)":""}
 `);
 
-    closeDeliveryForm();
-    cart = [];
-    updateCartBadge();
-    renderCart();
-    tg.HapticFeedback.impactOccurred("heavy");
-
-    // ── Envoyer récap au client via le bot ──
+    // ── Envoyer récap au client via le bot EN PREMIER ──
     if (telegramId) {
       const recap =
 `✅ *Commande confirmée !*
 
 🧾 *${orderId}*
-${order.items.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
+${cartSnapshot.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
 
 📦 *Livraison :*
 ${prenom} ${nom}
@@ -566,17 +561,19 @@ ${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
 💰 Total : *${(total+livraison).toFixed(2).replace(".",",")} €*${livraison===0?" _(livraison offerte)_":""}
 
 On vous recontacte très vite pour confirmer l'expédition. Merci ! 🙏`;
-      try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: telegramId, text: recap, parse_mode: "Markdown" }),
-        });
-      } catch(e) { console.warn("Bot message failed:", e); }
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: telegramId, text: recap, parse_mode: "Markdown" }),
+      });
     }
 
-    const telegramUrl = `https://t.me/wilIIly?text=${msg}`;
-    tg.openLink(telegramUrl, { try_instant_view: false });
+    closeDeliveryForm();
+    cart = [];
+    updateCartBadge();
+    renderCart();
+    tg.HapticFeedback.impactOccurred("heavy");
+    tg.openLink(`https://t.me/wilIIly?text=${msg}`, { try_instant_view: false });
 
   } catch(e) {
     console.error(e);
