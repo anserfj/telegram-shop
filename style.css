@@ -111,6 +111,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .page { display: none; padding: 0 14px 28px; animation: fadeUp .3s ease both; }
 .page.active { display: block; }
+.page:not(.active) { display: none !important; height: 0; overflow: hidden; padding: 0; margin: 0; }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -453,7 +454,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 
 /* Smooth scroll to top on tab switch */
-.page { scroll-margin-top: 0; }
 
 /* Skeleton pulse */
 @keyframes pulse {
