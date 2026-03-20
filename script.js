@@ -28,6 +28,31 @@ let currentFilter = "tous";
 // ── UTILS ─────────────────────────────────────────
 const isVideo = url => url && /\.(mp4|webm|mov|avi)(\?|$)/i.test(url);
 
+// ── PERSISTANCE PANIER ────────────────────────────
+function saveCart() {
+  try { localStorage.setItem("zkpro_cart", JSON.stringify(cart)); } catch(e) {}
+}
+function loadCart() {
+  try {
+    const saved = localStorage.getItem("zkpro_cart");
+    if (saved) cart = JSON.parse(saved);
+  } catch(e) { cart = []; }
+}
+
+// ── TELEGRAM MAIN BUTTON ──────────────────────────
+function updateMainButton() {
+  if (!tg.MainButton) return;
+  const total = cart.reduce((s, x) => s + x.qty, 0);
+  if (total > 0) {
+    const amount = getTotal() + getLivraison();
+    tg.MainButton.setText(`🛒 Commander — ${amount.toFixed(2).replace(".",",")} €`);
+    tg.MainButton.show();
+    tg.MainButton.onClick(checkout);
+  } else {
+    tg.MainButton.hide();
+  }
+}
+
 // ── SUPABASE ──────────────────────────────────────
 async function sbGet(table, params = "") {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: SB_HEADERS });
@@ -45,6 +70,8 @@ async function sbPost(table, body) {
 
 // ── INIT ──────────────────────────────────────────
 async function init() {
+  loadCart(); // Restaurer le panier sauvegardé
+
   // Skeleton loader
   const grid = document.getElementById("productGrid");
   if (grid) {
@@ -84,6 +111,13 @@ function switchTab(tab) {
   // Scroll to top
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (tab === "panier") renderCart();
+}
+
+let currentSearch = "";
+
+function searchProducts(query) {
+  currentSearch = query.toLowerCase().trim();
+  renderProducts();
 }
 
 function filterProducts(cat) {
@@ -180,12 +214,15 @@ function renderProducts() {
   const grid = document.getElementById("productGrid");
   if (!grid) return;
 
-  const filtered = currentFilter === "tous"
-    ? products
-    : products.filter(p => p.cat === currentFilter);
+  const filtered = products.filter(p => {
+    if (currentFilter !== "tous" && p.cat !== currentFilter) return false;
+    if (currentSearch && !p.name.toLowerCase().includes(currentSearch) &&
+        !(p.gouts||[]).some(g => g.toLowerCase().includes(currentSearch))) return false;
+    return true;
+  });
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3);font-size:14px">Aucun produit disponible</div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3);font-size:14px">${currentSearch ? `Aucun résultat pour "${currentSearch}"` : "Aucun produit disponible"}</div>`;
     return;
   }
 
@@ -377,6 +414,8 @@ function updateCartBadge() {
   const total = cart.reduce((s, x) => s + x.qty, 0);
   el.textContent = total;
   el.classList.toggle("visible", total > 0);
+  saveCart();        // Persister le panier
+  updateMainButton(); // Mettre à jour le bouton Telegram natif
 }
 
 function getTotal()    { return cart.reduce((s, x) => s + x.price * x.qty, 0); }
@@ -399,6 +438,7 @@ function renderCart() {
 
   const total     = getTotal();
   const livraison = getLivraison();
+  const progress  = Math.min(100, Math.round((total / 200) * 100));
 
   // Miniature panier : photo si dispo, sinon emoji
   const cartThumb = item => item.image_url
@@ -406,6 +446,21 @@ function renderCart() {
     : (item.emoji || "💨");
 
   content.innerHTML = `
+    ${livraison > 0 ? `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:11px;font-weight:700;color:var(--text2)">🚚 Livraison offerte dès 200 €</span>
+        <span style="font-size:11px;font-weight:700;color:var(--accent)">${total.toFixed(2).replace(".",",'")}&nbsp;/ 200,00 €</span>
+      </div>
+      <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width .4s ease"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:5px">Plus que ${(200-total).toFixed(2).replace(".",",")} € pour la livraison offerte</div>
+    </div>` : `
+    <div style="background:#00e67610;border:1px solid #00e67630;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">🎉</span>
+      <span style="font-size:13px;font-weight:700;color:#00e676">Livraison offerte !</span>
+    </div>`}
     <div class="cart-items">
       ${cart.map(item => `
         <div class="cart-item">
@@ -429,16 +484,15 @@ function renderCart() {
 
     <div class="cart-summary">
       <div class="summary-row">
-        <span>Sous-total HT</span>
+        <span>Sous-total</span>
         <span>${total.toFixed(2).replace(".", ",")} €</span>
       </div>
       <div class="summary-row">
         <span>Livraison</span>
-        <span style="color:${livraison === 0 ? "#00e676" : ""}">
+        <span style="color:${livraison === 0 ? "#00e676" : "var(--text)"}">
           ${livraison === 0 ? "OFFERTE ✓" : livraison.toFixed(2).replace(".", ",") + " €"}
         </span>
       </div>
-      ${livraison > 0 ? `<div style="font-size:.74rem;color:var(--text3);padding:3px 0">🚚 Livraison offerte dès 200 € (manque ${(200-total).toFixed(2)} €)</div>` : ""}
       <div class="summary-row total">
         <span>Total TTC</span>
         <span>${(total + livraison).toFixed(2).replace(".", ",")} €</span>
@@ -569,16 +623,25 @@ async function submitOrder() {
 
   if (!prenom || !nom || !adresse || !cp || !ville || !tel) {
     showToast("⚠️ Veuillez remplir tous les champs obligatoires");
-    // Highlight champs vides avec shake
     [["dlv_prenom",prenom],["dlv_nom",nom],["dlv_adresse",adresse],["dlv_cp",cp],["dlv_ville",ville],["dlv_tel",tel]].forEach(([id,val])=>{
       const el = document.getElementById(id);
-      if(!val && el){
-        el.style.borderColor = "#ff4757";
-        el.style.animation = "none";
-        el.offsetHeight; // reflow
-        el.style.animation = "shake .3s ease";
-      }
+      if(!val && el){ el.style.borderColor = "#ff4757"; el.style.animation = "none"; el.offsetHeight; el.style.animation = "shake .3s ease"; }
     });
+    return;
+  }
+  // Validation code postal
+  if (!/^\d{5}$/.test(cp)) {
+    showToast("⚠️ Code postal invalide (5 chiffres)");
+    const el = document.getElementById("dlv_cp");
+    if (el) { el.style.borderColor = "#ff4757"; el.focus(); }
+    return;
+  }
+  // Validation téléphone (format FR)
+  const telClean = tel.replace(/[\s\-\.\(\)]/g, "");
+  if (!/^(\+33|0033|0)[1-9]\d{8}$/.test(telClean)) {
+    showToast("⚠️ Numéro de téléphone invalide");
+    const el = document.getElementById("dlv_tel");
+    if (el) { el.style.borderColor = "#ff4757"; el.focus(); }
     return;
   }
 
@@ -665,6 +728,7 @@ On vous recontacte très vite pour confirmer l'expédition. Merci ! 🙏`;
 
     closeDeliveryForm();
     cart = [];
+    saveCart(); // Vider le panier sauvegardé
     updateCartBadge();
     renderCart();
     tg.HapticFeedback.impactOccurred("heavy");
