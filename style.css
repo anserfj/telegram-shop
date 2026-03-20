@@ -111,7 +111,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .page { display: none; padding: 0 14px 28px; animation: fadeUp .3s ease both; }
 .page.active { display: block; }
-.page:not(.active) { display: none !important; height: 0; overflow: hidden; padding: 0; margin: 0; }
+.page:not(.active) { display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; padding: 0 !important; margin: 0 !important; border: 0 !important; }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
