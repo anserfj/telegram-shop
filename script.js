@@ -98,6 +98,8 @@ async function init() {
   }
   renderProducts();
   updateCartBadge();
+  // Forcer display:none sur les pages inactives dès le départ
+  document.querySelectorAll(".page:not(.active)").forEach(p => { p.style.display = "none"; });
 }
 
 // ── NAVIGATION ────────────────────────────────────
@@ -105,11 +107,16 @@ function switchTab(tab) {
   document.querySelectorAll(".tab").forEach(b =>
     b.classList.toggle("active", b.dataset.tab === tab)
   );
-  document.querySelectorAll(".page").forEach(p =>
-    p.classList.toggle("active", p.id === `page-${tab}`)
-  );
-  // Scroll to top
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  document.querySelectorAll(".page").forEach(p => {
+    const isActive = p.id === `page-${tab}`;
+    p.classList.toggle("active", isActive);
+    // Forcer display explicitement pour éviter tout espace résiduel
+    p.style.display = isActive ? "block" : "none";
+  });
+  // Scroll to top — forcer immédiatement
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  window.scrollTo(0, 0);
   if (tab === "panier") renderCart();
 }
 
