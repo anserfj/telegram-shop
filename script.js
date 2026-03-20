@@ -561,10 +561,25 @@ ${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
 💰 Total : *${(total+livraison).toFixed(2).replace(".",",")} €*${livraison===0?" _(livraison offerte)_":""}
 
 On vous recontacte très vite pour confirmer l'expédition. Merci ! 🙏`;
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+
+      const botR = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: telegramId, text: recap, parse_mode: "Markdown" }),
+      });
+      const botData = await botR.json();
+      const tgMessageId = botData?.result?.message_id || null;
+
+      // Sauvegarder dans bot_messages pour l'afficher dans le dashboard
+      await fetch(`${SUPABASE_URL}/rest/v1/bot_messages`, {
+        method: "POST",
+        headers: { ...SB_HEADERS, "Prefer": "return=minimal" },
+        body: JSON.stringify({
+          telegram_id: telegramId,
+          direction: "out",
+          text: `🧾 Récap commande ${orderId}`,
+          tg_message_id: tgMessageId,
+        }),
       });
     }
 
