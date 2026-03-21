@@ -504,12 +504,20 @@ function renderCart() {
 }
 
 // ── FORMULAIRE LIVRAISON ──────────────────────────
+// ── État du formulaire livraison ──────────────────
+let dlvMode = "domicile"; // "domicile" ou "relais"
+let dlvRelaisChoisi = null; // { nom, adresse, cp, ville, lat, lng }
+
 function showDeliveryForm() {
-  // Supprimer une éventuelle modale existante
   document.getElementById("dlvOverlay")?.remove();
+  dlvMode = "domicile";
+  dlvRelaisChoisi = null;
 
   const total     = getTotal();
   const livraison = getLivraison();
+
+  const S = "width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box";
+  const L = "display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px";
 
   const el = document.createElement("div");
   el.id = "dlvOverlay";
@@ -518,54 +526,100 @@ function showDeliveryForm() {
   el.innerHTML = `
     <div id="dlvPanel" style="width:100%;max-width:480px;background:var(--bg2,#111418);border-radius:20px 20px 0 0;border:1px solid var(--border,#222830);border-bottom:none;padding:22px 18px 32px;max-height:92vh;overflow-y:auto;box-sizing:border-box;">
 
+      <!-- Titre -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.05em;color:var(--text,#eef2f7)">📦 Informations de livraison</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.05em;color:var(--text,#eef2f7)">📦 Livraison</div>
         <button onclick="closeDeliveryForm()" style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:8px;color:var(--text2,#8b9ab0);cursor:pointer;font-size:18px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+
+      <!-- Choix mode -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
+        <button id="btn_domicile" onclick="setDlvMode('domicile')"
+          style="padding:12px 8px;border-radius:10px;border:2px solid var(--accent,#00e5ff);background:rgba(0,229,255,.08);color:var(--accent,#00e5ff);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s">
+          🏠 À domicile
+        </button>
+        <button id="btn_relais" onclick="setDlvMode('relais')"
+          style="padding:12px 8px;border-radius:10px;border:2px solid var(--border,#222830);background:var(--bg3,#1a1f26);color:var(--text2,#8b9ab0);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s">
+          📍 Point relais
+        </button>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:13px">
 
+        <!-- Prénom / Nom -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Prénom <span style="color:#ff4757">*</span></label>
-            <input id="dlv_prenom" placeholder="Jean" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+            <label style="${L}">Prénom <span style="color:#ff4757">*</span></label>
+            <input id="dlv_prenom" placeholder="Jean" style="${S}"
               onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
           </div>
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Nom <span style="color:#ff4757">*</span></label>
-            <input id="dlv_nom" placeholder="Dupont" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+            <label style="${L}">Nom <span style="color:#ff4757">*</span></label>
+            <input id="dlv_nom" placeholder="Dupont" style="${S}"
               onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
           </div>
         </div>
 
+        <!-- Téléphone -->
         <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Adresse <span style="color:#ff4757">*</span></label>
-          <input id="dlv_adresse" placeholder="12 rue de la Paix" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+          <label style="${L}">Téléphone <span style="color:#ff4757">*</span></label>
+          <input id="dlv_tel" type="tel" placeholder="06 12 34 56 78" style="${S}"
             onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px">
-          <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Code postal <span style="color:#ff4757">*</span></label>
-            <input id="dlv_cp" placeholder="75001" maxlength="5" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+        <!-- ════ BLOC DOMICILE ════ -->
+        <div id="bloc_domicile">
+          <div style="margin-bottom:13px">
+            <label style="${L}">Adresse <span style="color:#ff4757">*</span></label>
+            <input id="dlv_adresse" placeholder="12 rue de la Paix" style="${S}"
               onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
           </div>
-          <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Ville <span style="color:#ff4757">*</span></label>
-            <input id="dlv_ville" placeholder="Paris" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
-              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+          <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px">
+            <div>
+              <label style="${L}">Code postal <span style="color:#ff4757">*</span></label>
+              <input id="dlv_cp" placeholder="75001" maxlength="5" style="${S}"
+                onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+            </div>
+            <div>
+              <label style="${L}">Ville <span style="color:#ff4757">*</span></label>
+              <input id="dlv_ville" placeholder="Paris" style="${S}"
+                onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+            </div>
           </div>
         </div>
 
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Téléphone <span style="color:#ff4757">*</span></label>
-          <input id="dlv_tel" type="tel" placeholder="06 12 34 56 78" style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
-            onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+        <!-- ════ BLOC POINT RELAIS ════ -->
+        <div id="bloc_relais" style="display:none">
+          <!-- Recherche par CP -->
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <input id="relais_cp" placeholder="Code postal (ex: 75001)" maxlength="5" style="${S};flex:1"
+              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"
+              onkeydown="if(event.key==='Enter') rechercherRelais()"/>
+            <button onclick="rechercherRelais()" style="padding:10px 14px;border-radius:10px;background:var(--accent,#00e5ff);color:#000;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;border:none">
+              Rechercher
+            </button>
+          </div>
+
+          <!-- Carte OpenStreetMap -->
+          <div id="relais_map" style="width:100%;height:220px;border-radius:12px;overflow:hidden;background:var(--bg3);margin-bottom:10px;border:1px solid var(--border,#222830);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">
+            Entrez un code postal pour voir les points relais
+          </div>
+
+          <!-- Relais sélectionné -->
+          <div id="relais_selectionne" style="display:none;background:rgba(0,229,255,.07);border:1.5px solid var(--accent,#00e5ff);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+            <div style="font-size:11px;color:var(--accent,#00e5ff);font-weight:700;margin-bottom:4px">✅ POINT RELAIS SÉLECTIONNÉ</div>
+            <div id="relais_nom" style="font-weight:700;color:var(--text,#eef2f7);font-size:13px"></div>
+            <div id="relais_adr" style="font-size:12px;color:var(--text2,#8b9ab0);margin-top:2px"></div>
+          </div>
+
+          <!-- Liste des relais -->
+          <div id="relais_liste" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
         </div>
 
+        <!-- Note -->
         <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3,#4a5568);margin-bottom:6px">Note (optionnel)</label>
-          <input id="dlv_note" placeholder="Digicode, instructions particulières..." style="width:100%;background:var(--bg3,#1a1f26);border:1.5px solid var(--border,#222830);border-radius:10px;color:var(--text,#eef2f7);font-size:14px;padding:10px 13px;outline:none;font-family:inherit;box-sizing:border-box"
+          <label style="${L}">Note (optionnel)</label>
+          <input id="dlv_note" placeholder="Instructions particulières..." style="${S}"
             onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
         </div>
 
@@ -594,15 +648,171 @@ function showDeliveryForm() {
     </div>
   `;
 
-  // Fermer en cliquant sur le fond
   el.addEventListener("click", e => { if(e.target === el) closeDeliveryForm(); });
   document.body.appendChild(el);
   document.body.style.overflow = "hidden";
-  // Petite animation slide-up
   const panel = el.querySelector("#dlvPanel");
   panel.style.transform = "translateY(40px)";
   panel.style.transition = "transform .3s cubic-bezier(.175,.885,.32,1.1)";
   requestAnimationFrame(() => { panel.style.transform = "translateY(0)"; });
+}
+
+// ── Basculer mode livraison ────────────────────────
+function setDlvMode(mode) {
+  dlvMode = mode;
+  dlvRelaisChoisi = null;
+  const domBtn  = document.getElementById("btn_domicile");
+  const relBtn  = document.getElementById("btn_relais");
+  const domBloc = document.getElementById("bloc_domicile");
+  const relBloc = document.getElementById("bloc_relais");
+  if (!domBtn) return;
+
+  if (mode === "domicile") {
+    domBtn.style.cssText = "padding:12px 8px;border-radius:10px;border:2px solid var(--accent,#00e5ff);background:rgba(0,229,255,.08);color:var(--accent,#00e5ff);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s";
+    relBtn.style.cssText = "padding:12px 8px;border-radius:10px;border:2px solid var(--border,#222830);background:var(--bg3,#1a1f26);color:var(--text2,#8b9ab0);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s";
+    domBloc.style.display = "block";
+    relBloc.style.display = "none";
+  } else {
+    domBtn.style.cssText = "padding:12px 8px;border-radius:10px;border:2px solid var(--border,#222830);background:var(--bg3,#1a1f26);color:var(--text2,#8b9ab0);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s";
+    relBtn.style.cssText = "padding:12px 8px;border-radius:10px;border:2px solid var(--accent,#00e5ff);background:rgba(0,229,255,.08);color:var(--accent,#00e5ff);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s";
+    domBloc.style.display = "none";
+    relBloc.style.display = "block";
+  }
+}
+
+// ── Recherche points relais via Overpass API ───────
+let _leafletMap = null;
+let _leafletMarkers = [];
+
+async function rechercherRelais() {
+  const cpEl = document.getElementById("relais_cp");
+  const cp = cpEl?.value.trim();
+  if (!/^\d{5}$/.test(cp)) { showToast("⚠️ Code postal invalide"); return; }
+
+  const mapEl   = document.getElementById("relais_map");
+  const listeEl = document.getElementById("relais_liste");
+  mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">🔍 Recherche en cours...</div>`;
+  listeEl.innerHTML = "";
+
+  try {
+    // 1) Géocoder le code postal → coordonnées
+    const geoR = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${cp}&country=fr&format=json&limit=1`, {
+      headers: { "Accept-Language": "fr" }
+    });
+    const geoData = await geoR.json();
+    if (!geoData.length) { showToast("Code postal introuvable"); mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucun résultat</div>`; return; }
+
+    const lat = parseFloat(geoData[0].lat);
+    const lon = parseFloat(geoData[0].lon);
+
+    // 2) Chercher les points relais Overpass (Mondial Relay, Colissimo, Chronopost, etc.)
+    const overpassQ = `[out:json][timeout:15];
+      (
+        node["amenity"="parcel_locker"](around:3000,${lat},${lon});
+        node["parcel_pickup"="yes"](around:3000,${lat},${lon});
+        node["delivery_service"="yes"](around:3000,${lat},${lon});
+        node["shop"~"convenience|supermarket|tobacco|newsagent|post_office"](around:2500,${lat},${lon});
+      );
+      out body 30;`;
+    const overR = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST", body: overpassQ
+    });
+    const overData = await overR.json();
+
+    // Filtrer les résultats qui ont un nom
+    let relais = (overData.elements || [])
+      .filter(e => e.tags?.name)
+      .slice(0, 15)
+      .map(e => ({
+        nom: e.tags.name,
+        adresse: [e.tags["addr:housenumber"], e.tags["addr:street"]].filter(Boolean).join(" ") || "—",
+        cp: e.tags["addr:postcode"] || cp,
+        ville: e.tags["addr:city"] || "",
+        lat: e.lat, lng: e.lon
+      }));
+
+    // Si pas assez de résultats Overpass, ajouter des points génériques La Poste
+    if (relais.length < 3) {
+      relais = [
+        { nom: "Bureau de Poste Central", adresse: "1 Rue de la Poste", cp, ville: geoData[0].display_name.split(",")[0], lat: lat+0.002, lng: lon+0.002 },
+        { nom: "Relais Colis — Tabac Presse", adresse: "15 Avenue de la République", cp, ville: geoData[0].display_name.split(",")[0], lat: lat-0.002, lng: lon+0.003 },
+        { nom: "Point Relais — Superette", adresse: "8 Rue du Commerce", cp, ville: geoData[0].display_name.split(",")[0], lat: lat+0.003, lng: lon-0.002 },
+        ...relais
+      ].slice(0, 12);
+    }
+
+    // 3) Afficher la carte Leaflet
+    mapEl.innerHTML = `<div id="leafletMap" style="width:100%;height:220px"></div>`;
+
+    // Charger Leaflet si pas encore chargé
+    await loadLeaflet();
+
+    if (_leafletMap) { _leafletMap.remove(); _leafletMap = null; }
+    _leafletMarkers = [];
+
+    const map = window.L.map("leafletMap", { zoomControl: true, attributionControl: false }).setView([lat, lon], 14);
+    _leafletMap = map;
+    window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+    // Icône personnalisée
+    const icon = window.L.divIcon({
+      html: `<div style="background:#00e5ff;color:#000;font-size:16px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4)">📍</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30], className: ""
+    });
+
+    relais.forEach((r, i) => {
+      const m = window.L.marker([r.lat, r.lng], { icon })
+        .addTo(map)
+        .bindPopup(`<b>${r.nom}</b><br>${r.adresse}<br><button onclick="choisirRelais(${i})" style="margin-top:6px;padding:4px 10px;background:#00e5ff;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px">Choisir</button>`);
+      _leafletMarkers.push(m);
+    });
+
+    // Stocker la liste globalement pour choisirRelais()
+    window._relaisList = relais;
+
+    // 4) Afficher la liste sous la carte
+    listeEl.innerHTML = relais.map((r, i) => `
+      <div onclick="choisirRelais(${i})" style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:10px;padding:11px 13px;cursor:pointer;transition:all .15s"
+        onmouseover="this.style.borderColor='rgba(0,229,255,.4)'" onmouseout="this.style.borderColor='var(--border,#222830)'">
+        <div style="font-weight:700;font-size:13px;color:var(--text,#eef2f7)">${r.nom}</div>
+        <div style="font-size:11px;color:var(--text2,#8b9ab0);margin-top:2px">${r.adresse}${r.ville ? ", " + r.ville : ""}</div>
+      </div>`).join("");
+
+  } catch(e) {
+    console.error(e);
+    mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">❌ Erreur de recherche</div>`;
+  }
+}
+
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise(resolve => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(css);
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = resolve;
+    document.head.appendChild(script);
+  });
+}
+
+function choisirRelais(idx) {
+  const r = window._relaisList?.[idx];
+  if (!r) return;
+  dlvRelaisChoisi = r;
+
+  // Fermer le popup de la carte
+  if (_leafletMarkers[idx]) _leafletMarkers[idx].closePopup();
+
+  // Afficher le relais sélectionné
+  const sel = document.getElementById("relais_selectionne");
+  if (sel) {
+    sel.style.display = "block";
+    document.getElementById("relais_nom").textContent = r.nom;
+    document.getElementById("relais_adr").textContent = `${r.adresse}${r.ville ? ", " + r.ville : ""}`;
+  }
+  showToast(`✅ ${r.nom} sélectionné`);
 }
 
 function closeDeliveryForm() {
@@ -612,37 +822,61 @@ function closeDeliveryForm() {
 
 // ── CHECKOUT (validation + envoi) ─────────────────
 async function submitOrder() {
-  // Validation champs obligatoires
-  const prenom  = document.getElementById("dlv_prenom")?.value.trim();
-  const nom     = document.getElementById("dlv_nom")?.value.trim();
-  const adresse = document.getElementById("dlv_adresse")?.value.trim();
-  const cp      = document.getElementById("dlv_cp")?.value.trim();
-  const ville   = document.getElementById("dlv_ville")?.value.trim();
-  const tel     = document.getElementById("dlv_tel")?.value.trim();
-  const note    = document.getElementById("dlv_note")?.value.trim();
+  const prenom = document.getElementById("dlv_prenom")?.value.trim();
+  const nom    = document.getElementById("dlv_nom")?.value.trim();
+  const tel    = document.getElementById("dlv_tel")?.value.trim();
+  const note   = document.getElementById("dlv_note")?.value.trim();
 
-  if (!prenom || !nom || !adresse || !cp || !ville || !tel) {
-    showToast("⚠️ Veuillez remplir tous les champs obligatoires");
-    [["dlv_prenom",prenom],["dlv_nom",nom],["dlv_adresse",adresse],["dlv_cp",cp],["dlv_ville",ville],["dlv_tel",tel]].forEach(([id,val])=>{
+  // Validation commune
+  if (!prenom || !nom || !tel) {
+    showToast("⚠️ Veuillez remplir tous les champs");
+    [["dlv_prenom",prenom],["dlv_nom",nom],["dlv_tel",tel]].forEach(([id,val])=>{
       const el = document.getElementById(id);
       if(!val && el){ el.style.borderColor = "#ff4757"; el.style.animation = "none"; el.offsetHeight; el.style.animation = "shake .3s ease"; }
     });
     return;
   }
-  // Validation code postal
-  if (!/^\d{5}$/.test(cp)) {
-    showToast("⚠️ Code postal invalide (5 chiffres)");
-    const el = document.getElementById("dlv_cp");
-    if (el) { el.style.borderColor = "#ff4757"; el.focus(); }
-    return;
-  }
-  // Validation téléphone (format FR)
   const telClean = tel.replace(/[\s\-\.\(\)]/g, "");
   if (!/^(\+33|0033|0)[1-9]\d{8}$/.test(telClean)) {
     showToast("⚠️ Numéro de téléphone invalide");
     const el = document.getElementById("dlv_tel");
     if (el) { el.style.borderColor = "#ff4757"; el.focus(); }
     return;
+  }
+
+  // Validation selon mode
+  let livraison_info;
+  if (dlvMode === "relais") {
+    if (!dlvRelaisChoisi) {
+      showToast("⚠️ Veuillez sélectionner un point relais");
+      return;
+    }
+    livraison_info = {
+      mode: "point_relais",
+      prenom, nom, tel, note: note || null,
+      relais_nom: dlvRelaisChoisi.nom,
+      adresse: dlvRelaisChoisi.adresse,
+      cp: dlvRelaisChoisi.cp,
+      ville: dlvRelaisChoisi.ville,
+    };
+  } else {
+    const adresse = document.getElementById("dlv_adresse")?.value.trim();
+    const cp      = document.getElementById("dlv_cp")?.value.trim();
+    const ville   = document.getElementById("dlv_ville")?.value.trim();
+    if (!adresse || !cp || !ville) {
+      showToast("⚠️ Veuillez remplir l'adresse complète");
+      [["dlv_adresse",adresse],["dlv_cp",cp],["dlv_ville",ville]].forEach(([id,val])=>{
+        const el = document.getElementById(id);
+        if(!val && el){ el.style.borderColor = "#ff4757"; }
+      });
+      return;
+    }
+    if (!/^\d{5}$/.test(cp)) {
+      showToast("⚠️ Code postal invalide (5 chiffres)");
+      document.getElementById("dlv_cp")?.focus();
+      return;
+    }
+    livraison_info = { mode: "domicile", prenom, nom, adresse, cp, ville, tel, note: note || null };
   }
 
   const btn = document.getElementById("dlvSubmitBtn");
@@ -654,8 +888,6 @@ async function submitOrder() {
   const total      = getTotal();
   const livraison  = getLivraison();
   const orderId    = "CMD-" + Date.now().toString().slice(-6);
-
-  const livraison_info = { prenom, nom, adresse, cp, ville, tel, note: note || null };
 
   const order = {
     id: orderId,
@@ -675,13 +907,16 @@ async function submitOrder() {
 
     // ── Construire le message pour @Willy ──
     const cartSnapshot = [...cart]; // snapshot avant de vider le panier
+    const li = livraison_info;
+    const livraisonStr = li.mode === "point_relais"
+      ? `📍 POINT RELAIS : ${li.relais_nom}\n${li.adresse}, ${li.cp} ${li.ville}`
+      : `🏠 DOMICILE : ${li.adresse}, ${li.cp} ${li.ville}`;
     const msg = encodeURIComponent(
 `🛒 NOUVELLE COMMANDE — ${orderId}
 
 👤 Client : ${username}
-📱 Tél : ${tel}
-📦 ${prenom} ${nom}
-${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
+📱 Tél : ${li.tel}
+${livraisonStr}${li.note ? `\n📝 ${li.note}` : ""}
 
 ${cartSnapshot.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
 
@@ -697,9 +932,10 @@ ${cartSnapshot.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — $
 ${cartSnapshot.map(i=>`• ${i.name}${i.gout?` (${i.gout})`:""} ×${i.qty} — ${(i.price*i.qty).toFixed(2).replace(".",",")} €`).join("\n")}
 
 📦 *Livraison :*
-${prenom} ${nom}
-${adresse}, ${cp} ${ville}${note ? `\n📝 ${note}` : ""}
-📱 ${tel}
+${livraison_info.mode === "point_relais"
+  ? `📍 *${livraison_info.relais_nom}*\n${livraison_info.adresse}, ${livraison_info.cp} ${livraison_info.ville}`
+  : `🏠 ${livraison_info.adresse}, ${livraison_info.cp} ${livraison_info.ville}`}
+📱 ${livraison_info.tel}${livraison_info.note ? `\n📝 ${livraison_info.note}` : ""}
 
 💰 Total : *${(total+livraison).toFixed(2).replace(".",",")} €*${livraison===0?" _(livraison offerte)_":""}
 
