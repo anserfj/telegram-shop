@@ -615,8 +615,13 @@ function showDeliveryForm() {
           </div>
 
           <!-- Carte OpenStreetMap -->
-          <div id="relais_map" style="width:100%;height:240px;border-radius:12px;overflow:hidden;background:var(--bg3);margin-bottom:10px;border:1px solid var(--border,#222830);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;text-align:center;padding:16px">
-            Entrez un code postal pour voir les points relais
+          <div style="position:relative;margin-bottom:10px">
+            <div id="relais_map" style="width:100%;height:240px;border-radius:12px;overflow:hidden;background:var(--bg3);border:1px solid var(--border,#222830);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;text-align:center;padding:16px">
+              Entrez un code postal pour voir les points relais
+            </div>
+            <div id="relais_map_loader" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#00e5ff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap">
+              🔍 Recherche en cours...
+            </div>
           </div>
 
           <!-- Liste des relais -->
@@ -839,29 +844,65 @@ out body 40;`;
     _leafletMap = map;
     window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-    relais.forEach((r, i) => {
-      const icon = window.L.divIcon({
-        html: `<div style="background:#00e5ff;color:#000;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.5);border:2px solid #fff">${i+1}</div>`,
-        iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30], className: ""
-      });
-      const popup = `
-        <div style="min-width:160px">
-          <div style="font-size:10px;color:#666;margin-bottom:2px">${r.type}</div>
-          <b style="font-size:13px">${r.nom}</b><br>
-          <span style="font-size:11px;color:#555">${r.adresse}${r.adresse ? ", " : ""}${r.cp} ${r.ville}</span>
-          ${r.horaires ? `<br><span style="font-size:11px;color:#444">🕐 ${r.horaires}</span>` : ""}
-          ${r.tel ? `<br><span style="font-size:11px;color:#444">📞 ${r.tel}</span>` : ""}
-          <br><span style="font-size:11px;color:#888">~${r.dist < 1000 ? r.dist+"m" : (r.dist/1000).toFixed(1)+"km"}</span>
-          <br><button onclick="choisirRelais(${i})" style="margin-top:7px;width:100%;padding:5px;background:#00e5ff;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px">
-            ✅ Choisir ce relais
-          </button>
-        </div>`;
-      const m = window.L.marker([r.lat, r.lng], { icon }).addTo(map).bindPopup(popup);
-      _leafletMarkers.push(m);
+    afficherMarqueurs(relais);
+    afficherListeRelais(relais);
+
+    // ── Recherche automatique au déplacement de la carte ──
+    let _moveTimer = null;
+    map.on("moveend", () => {
+      clearTimeout(_moveTimer);
+      // Indicateur visuel de chargement sur la carte
+      const ind = document.getElementById("relais_map_loader");
+      if (ind) ind.style.opacity = "1";
+      _moveTimer = setTimeout(() => rechercherRelaisZone(map.getCenter().lat, map.getCenter().lng), 700);
     });
 
-    // 4) Liste enrichie
-    listeEl.innerHTML = relais.map((r, i) => `
+    // Afficher le toggle
+    if (toggle) toggle.style.display = "block";
+
+  } catch(e) {
+    console.error(e);
+    mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">❌ Erreur réseau, réessayez</div>`;
+  }
+}
+
+// ── Afficher marqueurs sur la carte ───────────────
+function afficherMarqueurs(relais) {
+  if (!_leafletMap) return;
+  // Supprimer les anciens marqueurs
+  _leafletMarkers.forEach(m => _leafletMap.removeLayer(m));
+  _leafletMarkers = [];
+
+  relais.forEach((r, i) => {
+    const icon = window.L.divIcon({
+      html: `<div style="background:#00e5ff;color:#000;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.5);border:2px solid #fff">${i+1}</div>`,
+      iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30], className: ""
+    });
+    const popup = `
+      <div style="min-width:160px">
+        <div style="font-size:10px;color:#777;margin-bottom:2px">${r.type}</div>
+        <b style="font-size:13px">${r.nom}</b><br>
+        <span style="font-size:11px;color:#555">${r.adresse ? r.adresse+", " : ""}${r.cp} ${r.ville}</span>
+        ${r.horaires ? `<br><span style="font-size:11px;color:#444">🕐 ${r.horaires}</span>` : ""}
+        ${r.tel ? `<br><span style="font-size:11px;color:#444">📞 ${r.tel}</span>` : ""}
+        <br><span style="font-size:11px;color:#999">~${r.dist < 1000 ? r.dist+"m" : (r.dist/1000).toFixed(1)+"km"}</span>
+        <br><button onclick="choisirRelais(${i})" style="margin-top:7px;width:100%;padding:5px;background:#00e5ff;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px">
+          ✅ Choisir ce relais
+        </button>
+      </div>`;
+    const m = window.L.marker([r.lat, r.lng], { icon }).addTo(_leafletMap).bindPopup(popup);
+    _leafletMarkers.push(m);
+  });
+}
+
+// ── Afficher la liste sous la carte ───────────────
+function afficherListeRelais(relais) {
+  const listeEl = document.getElementById("relais_liste");
+  if (!listeEl) return;
+  window._relaisList = relais;
+  listeEl.innerHTML = relais.length === 0
+    ? `<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px">Aucun point relais trouvé dans cette zone</div>`
+    : relais.map((r, i) => `
       <div id="relais_item_${i}" onclick="choisirRelais(${i})"
         style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:12px;padding:13px 14px;cursor:pointer;transition:all .15s"
         onmouseover="this.style.borderColor='rgba(0,229,255,.4)'" onmouseout="this.style.borderColor='var(--border,#222830)'">
@@ -877,13 +918,71 @@ out body 40;`;
         ${r.horaires ? `<div style="font-size:11px;color:var(--text3,#4a5568);margin-top:3px">🕐 ${r.horaires}</div>` : ""}
         ${r.tel ? `<div style="font-size:11px;color:var(--text3,#4a5568);margin-top:2px">📞 ${r.tel}</div>` : ""}
       </div>`).join("");
+}
 
-    // Afficher le toggle
-    if (toggle) toggle.style.display = "block";
+// ── Recherche dans une nouvelle zone (après déplacement carte) ─
+async function rechercherRelaisZone(lat, lon) {
+  const loader = document.getElementById("relais_map_loader");
+
+  try {
+    const overpassQ = `[out:json][timeout:15];
+(
+  node["amenity"="parcel_locker"](around:3000,${lat},${lon});
+  node["parcel_pickup"="yes"](around:3000,${lat},${lon});
+  node["delivery_service"="yes"](around:3000,${lat},${lon});
+  node["shop"~"convenience|supermarket|tobacco|newsagent"](around:2500,${lat},${lon});
+  node["amenity"~"post_office"](around:3000,${lat},${lon});
+);
+out body 30;`;
+
+    const overR = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: overpassQ });
+    const overData = await overR.json();
+
+    // Reverse geocode le centre pour avoir ville/cp
+    let villeNom = "", cpZone = "";
+    try {
+      const revR = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { "Accept-Language": "fr" } });
+      const revData = await revR.json();
+      villeNom = revData.address?.city || revData.address?.town || revData.address?.village || "";
+      cpZone   = revData.address?.postcode || "";
+    } catch(e) {}
+
+    let relais = (overData.elements || [])
+      .filter(e => e.tags?.name)
+      .map(e => {
+        const t = e.tags;
+        let type = "📦 Relais Colis";
+        if (t.amenity === "post_office") type = "🟡 Bureau de Poste";
+        else if (t.amenity === "parcel_locker") type = "🔵 Casier colis";
+        else if (t.shop === "tobacco" || t.shop === "newsagent") type = "🟠 Tabac / Presse";
+        else if (t.shop === "supermarket" || t.shop === "convenience") type = "🟢 Superette";
+
+        const horaires = (t.opening_hours || "")
+          .replace("Mo-Fr","Lun-Ven").replace("Sa","Sam").replace("Su","Dim").replace("PH off","").trim();
+
+        const dLat = e.lat - lat, dLon = e.lon - lon;
+        const dist = Math.round(Math.sqrt(dLat*dLat + dLon*dLon) * 111000);
+
+        return {
+          nom: t.name, type,
+          adresse: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ") || "",
+          cp: t["addr:postcode"] || cpZone,
+          ville: t["addr:city"] || villeNom,
+          horaires, dist,
+          tel: t.phone || t["contact:phone"] || "",
+          lat: e.lat, lng: e.lon
+        };
+      })
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 12);
+
+    afficherMarqueurs(relais);
+    afficherListeRelais(relais);
 
   } catch(e) {
-    console.error(e);
-    mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">❌ Erreur réseau, réessayez</div>`;
+    console.error("rechercherRelaisZone:", e);
+  } finally {
+    if (loader) loader.style.opacity = "0";
   }
 }
 
