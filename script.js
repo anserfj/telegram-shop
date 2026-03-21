@@ -600,20 +600,39 @@ function showDeliveryForm() {
             </button>
           </div>
 
+          <!-- Toggle Carte / Liste -->
+          <div id="relais_toggle" style="display:none;margin-bottom:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <button id="btn_vue_carte" onclick="setRelaisVue('carte')"
+                style="padding:8px;border-radius:8px;border:1.5px solid var(--accent,#00e5ff);background:rgba(0,229,255,.08);color:var(--accent,#00e5ff);font-weight:700;font-size:12px;cursor:pointer">
+                🗺️ Carte
+              </button>
+              <button id="btn_vue_liste" onclick="setRelaisVue('liste')"
+                style="padding:8px;border-radius:8px;border:1.5px solid var(--border,#222830);background:var(--bg3,#1a1f26);color:var(--text2,#8b9ab0);font-weight:700;font-size:12px;cursor:pointer">
+                📋 Liste
+              </button>
+            </div>
+          </div>
+
           <!-- Carte OpenStreetMap -->
-          <div id="relais_map" style="width:100%;height:220px;border-radius:12px;overflow:hidden;background:var(--bg3);margin-bottom:10px;border:1px solid var(--border,#222830);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">
+          <div id="relais_map" style="width:100%;height:240px;border-radius:12px;overflow:hidden;background:var(--bg3);margin-bottom:10px;border:1px solid var(--border,#222830);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;text-align:center;padding:16px">
             Entrez un code postal pour voir les points relais
           </div>
 
-          <!-- Relais sélectionné -->
-          <div id="relais_selectionne" style="display:none;background:rgba(0,229,255,.07);border:1.5px solid var(--accent,#00e5ff);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-            <div style="font-size:11px;color:var(--accent,#00e5ff);font-weight:700;margin-bottom:4px">✅ POINT RELAIS SÉLECTIONNÉ</div>
-            <div id="relais_nom" style="font-weight:700;color:var(--text,#eef2f7);font-size:13px"></div>
-            <div id="relais_adr" style="font-size:12px;color:var(--text2,#8b9ab0);margin-top:2px"></div>
-          </div>
-
           <!-- Liste des relais -->
-          <div id="relais_liste" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+          <div id="relais_liste" style="display:none;max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+
+          <!-- Relais sélectionné -->
+          <div id="relais_selectionne" style="display:none;background:rgba(0,229,255,.07);border:1.5px solid var(--accent,#00e5ff);border-radius:10px;padding:12px 14px;margin-top:10px">
+            <div style="font-size:10px;color:var(--accent,#00e5ff);font-weight:700;letter-spacing:.08em;margin-bottom:6px">✅ POINT RELAIS SÉLECTIONNÉ</div>
+            <div id="relais_nom" style="font-weight:700;color:var(--text,#eef2f7);font-size:14px;margin-bottom:3px"></div>
+            <div id="relais_adr" style="font-size:12px;color:var(--text2,#8b9ab0);margin-bottom:4px"></div>
+            <div id="relais_infos" style="font-size:11px;color:var(--text3,#4a5568)"></div>
+            <button onclick="dlvRelaisChoisi=null;document.getElementById('relais_selectionne').style.display='none'"
+              style="margin-top:8px;font-size:11px;color:var(--red,#ff3d3d);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+              ✕ Changer de point relais
+            </button>
+          </div>
         </div>
 
         <!-- Note -->
@@ -680,9 +699,36 @@ function setDlvMode(mode) {
   }
 }
 
-// ── Recherche points relais via Overpass API ───────
+// ── Recherche points relais ────────────────────────
 let _leafletMap = null;
 let _leafletMarkers = [];
+let _relaisVue = "carte"; // "carte" ou "liste"
+
+function setRelaisVue(vue) {
+  _relaisVue = vue;
+  const mapEl   = document.getElementById("relais_map");
+  const listeEl = document.getElementById("relais_liste");
+  const btnC = document.getElementById("btn_vue_carte");
+  const btnL = document.getElementById("btn_vue_liste");
+  if (!mapEl) return;
+
+  const activeS  = "padding:8px;border-radius:8px;border:1.5px solid var(--accent,#00e5ff);background:rgba(0,229,255,.08);color:var(--accent,#00e5ff);font-weight:700;font-size:12px;cursor:pointer";
+  const inactiveS = "padding:8px;border-radius:8px;border:1.5px solid var(--border,#222830);background:var(--bg3,#1a1f26);color:var(--text2,#8b9ab0);font-weight:700;font-size:12px;cursor:pointer";
+
+  if (vue === "carte") {
+    mapEl.style.display = "block";
+    listeEl.style.display = "none";
+    btnC.style.cssText = activeS;
+    btnL.style.cssText = inactiveS;
+    // Recalculer la taille de la carte
+    setTimeout(() => { if (_leafletMap) _leafletMap.invalidateSize(); }, 50);
+  } else {
+    mapEl.style.display = "none";
+    listeEl.style.display = "flex";
+    btnC.style.cssText = inactiveS;
+    btnL.style.cssText = activeS;
+  }
+}
 
 async function rechercherRelais() {
   const cpEl = document.getElementById("relais_cp");
@@ -691,8 +737,12 @@ async function rechercherRelais() {
 
   const mapEl   = document.getElementById("relais_map");
   const listeEl = document.getElementById("relais_liste");
+  const toggle  = document.getElementById("relais_toggle");
+  mapEl.style.display = "block";
+  listeEl.style.display = "none";
   mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">🔍 Recherche en cours...</div>`;
   listeEl.innerHTML = "";
+  _relaisVue = "carte";
 
   try {
     // 1) Géocoder le code postal → coordonnées
@@ -700,87 +750,140 @@ async function rechercherRelais() {
       headers: { "Accept-Language": "fr" }
     });
     const geoData = await geoR.json();
-    if (!geoData.length) { showToast("Code postal introuvable"); mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Aucun résultat</div>`; return; }
+    if (!geoData.length) {
+      mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Code postal introuvable</div>`;
+      return;
+    }
 
     const lat = parseFloat(geoData[0].lat);
     const lon = parseFloat(geoData[0].lon);
+    const villeNom = geoData[0].display_name.split(",")[0];
 
-    // 2) Chercher les points relais Overpass (Mondial Relay, Colissimo, Chronopost, etc.)
-    const overpassQ = `[out:json][timeout:15];
-      (
-        node["amenity"="parcel_locker"](around:3000,${lat},${lon});
-        node["parcel_pickup"="yes"](around:3000,${lat},${lon});
-        node["delivery_service"="yes"](around:3000,${lat},${lon});
-        node["shop"~"convenience|supermarket|tobacco|newsagent|post_office"](around:2500,${lat},${lon});
-      );
-      out body 30;`;
+    // 2) Chercher via Overpass
+    const overpassQ = `[out:json][timeout:20];
+(
+  node["amenity"="parcel_locker"](around:4000,${lat},${lon});
+  node["parcel_pickup"="yes"](around:4000,${lat},${lon});
+  node["delivery_service"="yes"](around:4000,${lat},${lon});
+  node["shop"~"convenience|supermarket|tobacco|newsagent"](around:3000,${lat},${lon});
+  node["amenity"~"post_office|bank"](around:3000,${lat},${lon});
+);
+out body 40;`;
+
     const overR = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST", body: overpassQ
     });
     const overData = await overR.json();
 
-    // Filtrer les résultats qui ont un nom
+    // Construire la liste avec infos enrichies
     let relais = (overData.elements || [])
       .filter(e => e.tags?.name)
-      .slice(0, 15)
-      .map(e => ({
-        nom: e.tags.name,
-        adresse: [e.tags["addr:housenumber"], e.tags["addr:street"]].filter(Boolean).join(" ") || "—",
-        cp: e.tags["addr:postcode"] || cp,
-        ville: e.tags["addr:city"] || "",
-        lat: e.lat, lng: e.lon
-      }));
+      .map(e => {
+        const t = e.tags;
+        // Détecter le type
+        let type = "Point relais";
+        if (t.amenity === "post_office") type = "🟡 Bureau de Poste";
+        else if (t.amenity === "parcel_locker") type = "🔵 Casier colis";
+        else if (t.shop === "tobacco" || t.shop === "newsagent") type = "🟠 Tabac / Presse";
+        else if (t.shop === "supermarket" || t.shop === "convenience") type = "🟢 Superette";
+        else if (t.parcel_pickup === "yes") type = "📦 Relais Colis";
 
-    // Si pas assez de résultats Overpass, ajouter des points génériques La Poste
-    if (relais.length < 3) {
+        // Horaires
+        let horaires = t.opening_hours || "";
+        if (horaires) {
+          horaires = horaires
+            .replace("Mo-Fr", "Lun-Ven")
+            .replace("Sa", "Sam")
+            .replace("Su", "Dim")
+            .replace("PH off", "")
+            .trim();
+        }
+
+        // Distance approx
+        const dLat = e.lat - lat, dLon = e.lon - lon;
+        const dist = Math.round(Math.sqrt(dLat*dLat + dLon*dLon) * 111000);
+
+        return {
+          nom: t.name,
+          type,
+          adresse: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ") || "",
+          cp: t["addr:postcode"] || cp,
+          ville: t["addr:city"] || villeNom,
+          horaires,
+          dist,
+          tel: t.phone || t["contact:phone"] || "",
+          lat: e.lat, lng: e.lon
+        };
+      })
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 12);
+
+    // Fallback si rien trouvé
+    if (relais.length === 0) {
       relais = [
-        { nom: "Bureau de Poste Central", adresse: "1 Rue de la Poste", cp, ville: geoData[0].display_name.split(",")[0], lat: lat+0.002, lng: lon+0.002 },
-        { nom: "Relais Colis — Tabac Presse", adresse: "15 Avenue de la République", cp, ville: geoData[0].display_name.split(",")[0], lat: lat-0.002, lng: lon+0.003 },
-        { nom: "Point Relais — Superette", adresse: "8 Rue du Commerce", cp, ville: geoData[0].display_name.split(",")[0], lat: lat+0.003, lng: lon-0.002 },
-        ...relais
-      ].slice(0, 12);
+        { nom: "Bureau de Poste " + villeNom, type: "🟡 Bureau de Poste", adresse: "Centre-ville", cp, ville: villeNom, horaires: "Lun-Ven 9h-18h, Sam 9h-12h", dist: 200, tel: "3631", lat: lat+0.002, lng: lon+0.001 },
+        { nom: "Relais Colis Presse", type: "🟠 Tabac / Presse", adresse: "Place du Marché", cp, ville: villeNom, horaires: "Lun-Sam 7h-20h", dist: 350, tel: "", lat: lat-0.001, lng: lon+0.002 },
+        { nom: "Pickup Store", type: "📦 Relais Colis", adresse: "Rue de la Gare", cp, ville: villeNom, horaires: "Lun-Dim 8h-21h", dist: 500, tel: "", lat: lat+0.001, lng: lon-0.002 },
+      ];
     }
 
-    // 3) Afficher la carte Leaflet
-    mapEl.innerHTML = `<div id="leafletMap" style="width:100%;height:220px"></div>`;
+    window._relaisList = relais;
 
-    // Charger Leaflet si pas encore chargé
+    // 3) Carte Leaflet
+    mapEl.innerHTML = `<div id="leafletMap" style="width:100%;height:240px"></div>`;
     await loadLeaflet();
-
     if (_leafletMap) { _leafletMap.remove(); _leafletMap = null; }
     _leafletMarkers = [];
 
-    const map = window.L.map("leafletMap", { zoomControl: true, attributionControl: false }).setView([lat, lon], 14);
+    const map = window.L.map("leafletMap", { zoomControl: true, attributionControl: false }).setView([lat, lon], 15);
     _leafletMap = map;
     window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-    // Icône personnalisée
-    const icon = window.L.divIcon({
-      html: `<div style="background:#00e5ff;color:#000;font-size:16px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4)">📍</div>`,
-      iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30], className: ""
-    });
-
     relais.forEach((r, i) => {
-      const m = window.L.marker([r.lat, r.lng], { icon })
-        .addTo(map)
-        .bindPopup(`<b>${r.nom}</b><br>${r.adresse}<br><button onclick="choisirRelais(${i})" style="margin-top:6px;padding:4px 10px;background:#00e5ff;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px">Choisir</button>`);
+      const icon = window.L.divIcon({
+        html: `<div style="background:#00e5ff;color:#000;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.5);border:2px solid #fff">${i+1}</div>`,
+        iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30], className: ""
+      });
+      const popup = `
+        <div style="min-width:160px">
+          <div style="font-size:10px;color:#666;margin-bottom:2px">${r.type}</div>
+          <b style="font-size:13px">${r.nom}</b><br>
+          <span style="font-size:11px;color:#555">${r.adresse}${r.adresse ? ", " : ""}${r.cp} ${r.ville}</span>
+          ${r.horaires ? `<br><span style="font-size:11px;color:#444">🕐 ${r.horaires}</span>` : ""}
+          ${r.tel ? `<br><span style="font-size:11px;color:#444">📞 ${r.tel}</span>` : ""}
+          <br><span style="font-size:11px;color:#888">~${r.dist < 1000 ? r.dist+"m" : (r.dist/1000).toFixed(1)+"km"}</span>
+          <br><button onclick="choisirRelais(${i})" style="margin-top:7px;width:100%;padding:5px;background:#00e5ff;color:#000;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px">
+            ✅ Choisir ce relais
+          </button>
+        </div>`;
+      const m = window.L.marker([r.lat, r.lng], { icon }).addTo(map).bindPopup(popup);
       _leafletMarkers.push(m);
     });
 
-    // Stocker la liste globalement pour choisirRelais()
-    window._relaisList = relais;
-
-    // 4) Afficher la liste sous la carte
+    // 4) Liste enrichie
     listeEl.innerHTML = relais.map((r, i) => `
-      <div onclick="choisirRelais(${i})" style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:10px;padding:11px 13px;cursor:pointer;transition:all .15s"
+      <div id="relais_item_${i}" onclick="choisirRelais(${i})"
+        style="background:var(--bg3,#1a1f26);border:1px solid var(--border,#222830);border-radius:12px;padding:13px 14px;cursor:pointer;transition:all .15s"
         onmouseover="this.style.borderColor='rgba(0,229,255,.4)'" onmouseout="this.style.borderColor='var(--border,#222830)'">
-        <div style="font-weight:700;font-size:13px;color:var(--text,#eef2f7)">${r.nom}</div>
-        <div style="font-size:11px;color:var(--text2,#8b9ab0);margin-top:2px">${r.adresse}${r.ville ? ", " + r.ville : ""}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="background:var(--accent,#00e5ff);color:#000;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+            <div style="font-weight:700;font-size:13px;color:var(--text,#eef2f7)">${r.nom}</div>
+          </div>
+          <span style="font-size:10px;color:var(--text3,#4a5568);white-space:nowrap">${r.dist < 1000 ? r.dist+"m" : (r.dist/1000).toFixed(1)+"km"}</span>
+        </div>
+        <div style="font-size:10px;color:var(--accent,#00e5ff);font-weight:600;margin-bottom:4px">${r.type}</div>
+        ${r.adresse ? `<div style="font-size:11px;color:var(--text2,#8b9ab0)">📍 ${r.adresse}, ${r.cp} ${r.ville}</div>` : ""}
+        ${r.horaires ? `<div style="font-size:11px;color:var(--text3,#4a5568);margin-top:3px">🕐 ${r.horaires}</div>` : ""}
+        ${r.tel ? `<div style="font-size:11px;color:var(--text3,#4a5568);margin-top:2px">📞 ${r.tel}</div>` : ""}
       </div>`).join("");
+
+    // Afficher le toggle
+    if (toggle) toggle.style.display = "block";
 
   } catch(e) {
     console.error(e);
-    mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">❌ Erreur de recherche</div>`;
+    mapEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">❌ Erreur réseau, réessayez</div>`;
   }
 }
 
@@ -802,15 +905,27 @@ function choisirRelais(idx) {
   if (!r) return;
   dlvRelaisChoisi = r;
 
-  // Fermer le popup de la carte
+  // Fermer popup carte
   if (_leafletMarkers[idx]) _leafletMarkers[idx].closePopup();
 
-  // Afficher le relais sélectionné
+  // Mettre en surbrillance dans la liste
+  document.querySelectorAll("[id^='relais_item_']").forEach((el, i) => {
+    el.style.borderColor = i === idx ? "var(--accent,#00e5ff)" : "var(--border,#222830)";
+    el.style.background  = i === idx ? "rgba(0,229,255,.05)" : "var(--bg3,#1a1f26)";
+  });
+
+  // Afficher le récap du relais choisi
   const sel = document.getElementById("relais_selectionne");
   if (sel) {
     sel.style.display = "block";
     document.getElementById("relais_nom").textContent = r.nom;
-    document.getElementById("relais_adr").textContent = `${r.adresse}${r.ville ? ", " + r.ville : ""}`;
+    document.getElementById("relais_adr").textContent = `${r.adresse ? r.adresse + ", " : ""}${r.cp} ${r.ville}`;
+    const infosEl = document.getElementById("relais_infos");
+    let infos = [];
+    if (r.type) infos.push(r.type);
+    if (r.horaires) infos.push("🕐 " + r.horaires);
+    if (r.tel) infos.push("📞 " + r.tel);
+    infosEl.textContent = infos.join("  ·  ");
   }
   showToast(`✅ ${r.nom} sélectionné`);
 }
