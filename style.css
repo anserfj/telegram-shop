@@ -109,23 +109,9 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   padding-top: calc(var(--header-h) + 4px);
   padding-bottom: calc(var(--tabs-h) + 12px);
   max-width: 480px; margin: 0 auto;
-  position: relative;
 }
-.page {
-  display: none;
-  padding: 0 14px 28px;
-}
-.page.active {
-  display: block;
-  animation: fadeUp .3s ease both;
-}
-/* Garantie absolue : pages inactives n'ont AUCUNE hauteur */
-#page-produits, #page-info, #page-panier {
-  display: none;
-}
-#page-produits.active, #page-info.active, #page-panier.active {
-  display: block;
-}
+.page { display: none; padding: 0 14px 28px; animation: fadeUp .3s ease both; }
+.page.active { display: block; }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
