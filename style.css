@@ -26,6 +26,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 body {
+  overflow-x: hidden;
   font-family: 'Inter', sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -108,7 +109,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   padding-top: calc(var(--header-h) + 4px);
   padding-bottom: calc(var(--tabs-h) + 12px);
   max-width: 480px; margin: 0 auto;
-  overflow: hidden;
+  position: relative;
 }
 .page {
   display: none;
@@ -117,6 +118,13 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .page.active {
   display: block;
   animation: fadeUp .3s ease both;
+}
+/* Garantie absolue : pages inactives n'ont AUCUNE hauteur */
+#page-produits, #page-info, #page-panier {
+  display: none;
+}
+#page-produits.active, #page-info.active, #page-panier.active {
+  display: block;
 }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
