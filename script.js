@@ -41,16 +41,8 @@ function loadCart() {
 
 // ── TELEGRAM MAIN BUTTON ──────────────────────────
 function updateMainButton() {
-  if (!tg.MainButton) return;
-  const total = cart.reduce((s, x) => s + x.qty, 0);
-  if (total > 0) {
-    const amount = getTotal() + getLivraison();
-    tg.MainButton.setText(`🛒 Commander — ${amount.toFixed(2).replace(".",",")} €`);
-    tg.MainButton.show();
-    tg.MainButton.onClick(checkout);
-  } else {
-    tg.MainButton.hide();
-  }
+  // MainButton Telegram désactivé
+  if (tg.MainButton) tg.MainButton.hide();
 }
 
 // ── SUPABASE ──────────────────────────────────────
@@ -91,6 +83,7 @@ async function init() {
       ...p,
       price: parseFloat(p.price),
       gouts: Array.isArray(p.gouts) ? p.gouts : (p.gouts ? JSON.parse(p.gouts) : []),
+      description: p.description || "",
     }));
   } catch(e) {
     console.warn("Supabase indispo, fallback:", e);
@@ -301,6 +294,7 @@ function openModal(id) {
       ${discount > 0 ? `&nbsp;<span style="background:#ff4757;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px">-${discount}%</span>` : ""}
     </div>
     <div class="modal-name">${p.name}</div>
+    ${p.description ? `<div style="font-size:.84rem;line-height:1.6;color:var(--text2);margin:8px 0 4px">${p.description}</div>` : ""}
     <div class="modal-price" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
       <span style="color:var(--accent);font-size:1.4rem;font-weight:700">${p.price.toFixed(2).replace(".", ",")} €</span>
       ${p.compare_price && p.compare_price > p.price
@@ -569,10 +563,13 @@ function showDeliveryForm() {
 
         <!-- ════ BLOC DOMICILE ════ -->
         <div id="bloc_domicile">
-          <div style="margin-bottom:13px">
+          <div style="margin-bottom:13px;position:relative">
             <label style="${L}">Adresse <span style="color:#ff4757">*</span></label>
-            <input id="dlv_adresse" placeholder="12 rue de la Paix" style="${S}"
-              onfocus="this.style.borderColor='var(--accent,#00e5ff)'" onblur="this.style.borderColor='var(--border,#222830)'"/>
+            <input id="dlv_adresse" placeholder="12 rue de la Paix" autocomplete="off" style="${S}"
+              onfocus="this.style.borderColor='var(--accent,#00e5ff)'"
+              oninput="autocompleteAdresse(this.value)"
+              onblur="setTimeout(()=>fermerSuggestions(),200)"/>
+            <div id="adresse_suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:#1a1f26;border:1px solid rgba(0,229,255,.25);border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);margin-top:3px"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px">
             <div>
@@ -1162,6 +1159,89 @@ function closeDeliveryForm() {
 }
 
 // ── CHECKOUT (validation + envoi) ─────────────────
+// ── Autocomplétion adresse (API Nominatim) ────────
+let _adresseTimer = null;
+
+async function autocompleteAdresse(query) {
+  clearTimeout(_adresseTimer);
+  const box = document.getElementById("adresse_suggestions");
+  if (!box) return;
+
+  if (query.length < 3) {
+    box.style.display = "none";
+    return;
+  }
+
+  _adresseTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=fr&format=json&addressdetails=1&limit=5`,
+        { headers: { "Accept-Language": "fr" } }
+      );
+      const results = await r.json();
+
+      if (!results.length) {
+        box.style.display = "none";
+        return;
+      }
+
+      box.innerHTML = results.map((res, i) => {
+        const a = res.address;
+        // Construire une adresse lisible
+        const rue = [a.house_number, a.road].filter(Boolean).join(" ");
+        const cp  = a.postcode || "";
+        const vil = a.city || a.town || a.village || a.municipality || "";
+        const label = [rue, cp, vil].filter(Boolean).join(", ") || res.display_name.split(",").slice(0,3).join(",");
+
+        return `<div
+          onclick="choisirAdresse(${i})"
+          data-rue="${(rue||"").replace(/"/g,"&quot;")}"
+          data-cp="${cp}"
+          data-ville="${vil.replace(/"/g,"&quot;")}"
+          style="padding:11px 14px;cursor:pointer;font-size:13px;color:#eef2f7;border-bottom:1px solid rgba(255,255,255,.05);transition:background .15s"
+          onmouseover="this.style.background='rgba(0,229,255,.07)'"
+          onmouseout="this.style.background='transparent'">
+          <div style="font-weight:600">${rue || label}</div>
+          ${cp || vil ? `<div style="font-size:11px;color:#8b9ab0;margin-top:2px">${[cp, vil].filter(Boolean).join(" ")}</div>` : ""}
+        </div>`;
+      }).join("");
+
+      // Stocker les résultats pour choisirAdresse()
+      window._adresseResults = results;
+      box.style.display = "block";
+    } catch(e) {
+      box.style.display = "none";
+    }
+  }, 350);
+}
+
+function choisirAdresse(idx) {
+  const res = window._adresseResults?.[idx];
+  if (!res) return;
+  const a = res.address;
+
+  const rue  = [a.house_number, a.road].filter(Boolean).join(" ");
+  const cp   = a.postcode || "";
+  const vil  = a.city || a.town || a.village || a.municipality || "";
+
+  const inputAdresse = document.getElementById("dlv_adresse");
+  const inputCp      = document.getElementById("dlv_cp");
+  const inputVille   = document.getElementById("dlv_ville");
+
+  if (inputAdresse) inputAdresse.value = rue || res.display_name.split(",")[0].trim();
+  if (inputCp && cp) inputCp.value = cp;
+  if (inputVille && vil) inputVille.value = vil;
+
+  fermerSuggestions();
+  // Focus sur téléphone si tout est rempli
+  if (rue && cp && vil) document.getElementById("dlv_tel")?.focus();
+}
+
+function fermerSuggestions() {
+  const box = document.getElementById("adresse_suggestions");
+  if (box) box.style.display = "none";
+}
+
 async function submitOrder() {
   const prenom = document.getElementById("dlv_prenom")?.value.trim();
   const nom    = document.getElementById("dlv_nom")?.value.trim();
