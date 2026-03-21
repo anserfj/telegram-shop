@@ -619,9 +619,16 @@ function showDeliveryForm() {
             <div id="relais_map" style="width:100%;height:240px;border-radius:12px;overflow:hidden;background:var(--bg3);border:1px solid var(--border,#222830);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;text-align:center;padding:16px">
               Entrez un code postal pour voir les points relais
             </div>
-            <div id="relais_map_loader" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#00e5ff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap">
-              🔍 Recherche en cours...
+            <!-- Loader -->
+            <div id="relais_map_loader" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#00e5ff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap;z-index:1000">
+              🔍 Recherche...
             </div>
+            <!-- Bouton zone -->
+            <button id="btn_rechercher_zone"
+              onclick="lancerRechercheZone()"
+              style="position:absolute;top:8px;left:50%;transform:translateX(-50%) scale(0.9);background:#00e5ff;color:#000;font-size:12px;font-weight:700;padding:7px 16px;border-radius:20px;border:none;cursor:pointer;opacity:0;pointer-events:none;transition:all .25s;white-space:nowrap;z-index:1000;box-shadow:0 2px 10px rgba(0,0,0,.4)">
+              🔍 Rechercher dans cette zone
+            </button>
           </div>
 
           <!-- Liste des relais -->
@@ -847,14 +854,18 @@ out body 40;`;
     afficherMarqueurs(relais);
     afficherListeRelais(relais);
 
-    // ── Recherche automatique au déplacement de la carte ──
-    let _moveTimer = null;
+    // ── Bouton "Rechercher dans cette zone" au déplacement ──
+    map.on("movestart", () => {
+      const btn = document.getElementById("btn_rechercher_zone");
+      if (btn) { btn.style.opacity = "0"; btn.style.pointerEvents = "none"; }
+    });
     map.on("moveend", () => {
-      clearTimeout(_moveTimer);
-      // Indicateur visuel de chargement sur la carte
-      const ind = document.getElementById("relais_map_loader");
-      if (ind) ind.style.opacity = "1";
-      _moveTimer = setTimeout(() => rechercherRelaisZone(map.getCenter().lat, map.getCenter().lng), 700);
+      const btn = document.getElementById("btn_rechercher_zone");
+      if (btn) {
+        btn.style.opacity = "1";
+        btn.style.pointerEvents = "auto";
+        btn.style.transform = "translateX(-50%) scale(1)";
+      }
     });
 
     // Afficher le toggle
@@ -921,6 +932,17 @@ function afficherListeRelais(relais) {
 }
 
 // ── Recherche dans une nouvelle zone (après déplacement carte) ─
+function lancerRechercheZone() {
+  if (!_leafletMap) return;
+  const btn = document.getElementById("btn_rechercher_zone");
+  const loader = document.getElementById("relais_map_loader");
+  // Cacher le bouton, montrer le loader
+  if (btn) { btn.style.opacity = "0"; btn.style.pointerEvents = "none"; }
+  if (loader) loader.style.opacity = "1";
+  const center = _leafletMap.getCenter();
+  rechercherRelaisZone(center.lat, center.lng);
+}
+
 async function rechercherRelaisZone(lat, lon) {
   const loader = document.getElementById("relais_map_loader");
 
